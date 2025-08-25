@@ -1,0 +1,69 @@
+Testing NASA Exoplanet Archive API...
+==================================================
+
+1. Testing basic query for confirmed planets (pscomppars table):
+DEBUG: SQL Query: select pl_name,pl_rade,disc_year,st_teff from pscomppars
+DEBUG: Making request to: https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select%20pl_name%2Cpl_rade%2Cdisc_year%2Cst_teff%20from%20pscomppars&format=json
+DEBUG: Response status: 200
+DEBUG: Response headers: {'Date': 'Mon, 25 Aug 2025 21:01:11 GMT', 'Server': 'Apache/2.4.6 (CentOS) Phusion_Passenger/6.0.4 OpenSSL/1.0.2k-fips PHP/5.4.16 mod_wsgi/4.9.4 Python/3.11', 'Content-type': 'application/json', 'Keep-Alive': 'timeout=15, max=100', 'Connection': 'Keep-Alive', 'Transfer-Encoding': 'chunked'}
+DEBUG: Response content (first 200 chars): [
+{"pl_name": "Kepler-334 d",
+"pl_rade": 1.41000000,
+"disc_year": 2014,
+"st_teff": 5828.00},
+{"pl_name": "Kepler-251 d",
+"pl_rade": 2.77000000,
+"disc_year": 2014,
+"st_teff": 5526.00},
+{"pl_name": "Kep
+✅ Success! Retrieved 5983 exoplanets
+Sample planet: Kepler-334 d
+Radius: 1.41 Earth radii
+Discovery year: 2014
+
+2. Testing query with filters (planets discovered after 2020):
+DEBUG: SQL Query: select pl_name,disc_year,pl_rade from pscomppars where disc_year>2020 order by disc_year desc
+DEBUG: Making request to: https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select%20pl_name%2Cdisc_year%2Cpl_rade%20from%20pscomppars%20where%20disc_year%3E2020%20order%20by%20disc_year%20desc&format=json
+DEBUG: Response status: 200
+DEBUG: Response headers: {'Date': 'Mon, 25 Aug 2025 21:01:16 GMT', 'Server': 'Apache/2.4.6 (CentOS) Phusion_Passenger/6.0.4 OpenSSL/1.0.2k-fips PHP/5.4.16 mod_wsgi/4.9.4 Python/3.11', 'Content-type': 'application/json', 'Keep-Alive': 'timeout=15, max=100', 'Connection': 'Keep-Alive', 'Transfer-Encoding': 'chunked'}
+DEBUG: Response content (first 200 chars): [
+{"pl_name": "TOI-2876 b",
+"disc_year": 2025,
+"pl_rade": 9.63972340},
+{"pl_name": "TOI-3593 b",
+"disc_year": 2025,
+"pl_rade": 11.02963701},
+{"pl_name": "TOI-3135 b",
+"disc_year": 2025,
+"pl_rade": 13.
+✅ Success! Found 1654 planets discovered after 2020
+  1. TOI-2876 b (2025)
+  2. TOI-3593 b (2025)
+  3. TOI-3135 b (2025)
+
+3. Testing count query:
+DEBUG: SQL Query: select count(*) from pscomppars
+DEBUG: Making request to: https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select%20count%28%2A%29%20from%20pscomppars&format=json
+DEBUG: Response status: 200
+DEBUG: Response headers: {'Date': 'Mon, 25 Aug 2025 21:01:20 GMT', 'Server': 'Apache/2.4.6 (CentOS) Phusion_Passenger/6.0.4 OpenSSL/1.0.2k-fips PHP/5.4.16 mod_wsgi/4.9.4 Python/3.11', 'Content-type': 'application/json', 'Keep-Alive': 'timeout=15, max=100', 'Connection': 'Keep-Alive', 'Transfer-Encoding': 'chunked'}
+DEBUG: Response content (first 200 chars): [
+{"count(*)": 5983}
+]
+
+✅ Success! Total confirmed exoplanets: 5983
+
+4. Testing invalid table (error handling):
+DEBUG: SQL Query: select * from invalid_table
+DEBUG: Making request to: https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select%20%2A%20from%20invalid_table&format=json
+DEBUG: Response status: 400
+DEBUG: Response headers: {'Date': 'Mon, 25 Aug 2025 21:01:23 GMT', 'Server': 'Apache/2.4.6 (CentOS) Phusion_Passenger/6.0.4 OpenSSL/1.0.2k-fips PHP/5.4.16 mod_wsgi/4.9.4 Python/3.11', 'Content-type': 'text/xml', 'Connection': 'close', 'Transfer-Encoding': 'chunked'}
+DEBUG: Response content (first 200 chars): <?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">
+<RESOURCE type="results">
+<INFO name="QUERY_STATUS" value="ERROR">
+ORA-00942: table or view 
+DEBUG: Request failed with status 400
+✅ Good! Function properly returned None for invalid table
+
+==================================================
+Testing complete!
