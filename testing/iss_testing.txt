@@ -1,0 +1,31 @@
+Testing Enhanced ISS API...
+==================================================
+
+1. Testing current ISS position (ID: 25544):
+✅ Success! ISS is currently at:
+   Latitude: 45.74°
+   Longitude: 147.69°
+   Altitude: 422.94 km
+   Velocity: 27583.95 km/h
+   Visibility: daylight
+
+2. Testing ISS TLE data:
+✅ Success! TLE data retrieved:
+   Satellite: iss
+   TLE Timestamp: 1756056105
+   Line 1: 1 25544U 98067A   25236.72343932  .00011034  00000...
+
+3. Testing ISS overhead check (London: 51.5074, -0.1278):
+✅ ISS is not currently overhead London
+
+4. Testing coordinate information for ISS current position:
+✅ Success! ISS is currently over:
+   Country: RU
+   Timezone: Asia/Ust-Nera
+
+5. Testing satellites list:
+✅ Success! Available satellites:
+   iss (ID: 25544)
+
+==================================================
+ISS API testing complete!
