@@ -1,0 +1,185 @@
+🌌 NASA OPEN SPACE DATA HUB - API TESTING SUITE
+================================================================================
+Testing all NASA APIs including:
+• APOD (Astronomy Picture of the Day)
+• NeoWs (Near Earth Objects)
+• DONKI (Space Weather)
+• EONET (Natural Events)
+• Mars Rover Photos
+• NASA Images Library
+• ISS Position Tracking
+• OSDR (Open Science Data Repository)
+================================================================================
+🚀 COMPREHENSIVE NASA APIS TEST SUITE
+================================================================================
+
+============================================================
+TESTING APOD FUNCTION
+============================================================
+
+✅ Success! Today's APOD: A Leaky Solar Prominence
+   Date: 2025-08-26
+   Media type: other
+
+2. Testing specific date (2023-01-01):
+✅ Success! APOD for 2023-01-01: The Largest Rock in our Solar System
+
+3. Testing random count (3 images):
+✅ Success! Retrieved 3 random APODs
+   1. Eclipsed Moon Over Wyoming (2012-06-06)
+   2. Centaurus A: A Peculiar Island of Stars (2023-05-03)
+
+============================================================
+TESTING NEOW (NEAR EARTH OBJECTS) CLASS
+============================================================
+
+1. Testing NEO feed (next 7 days):
+✅ Success! Retrieved NEO feed
+   Total elements: 87
+   Objects on 2025-09-02: 9
+
+2. Testing asteroid lookup (ID: 3542519):
+✅ Success! Found asteroid: (2010 PK9)
+   Absolute magnitude: 21.81
+
+3. Testing NEO browse:
+✅ Success! Browse results
+   Total elements: Unknown
+   First object: 433 Eros (A898 PA)
+
+============================================================
+TESTING DONKI (SPACE WEATHER) CLASS
+============================================================
+
+1. Testing solar flares (2025-07-27 to 2025-08-26):
+✅ Success! Found 38 solar flare events
+   Latest flare: 2025-07-29T21:59:00-FLR-001 on 2025-07-29T21:59Z
+
+2. Testing geomagnetic storms:
+✅ Success! Found 1 geomagnetic storm events
+
+============================================================
+TESTING EONET (EARTH NATURAL EVENTS) CLASS
+============================================================
+
+1. Testing recent events (last 30 days):
+✅ Success! Found 10 recent events
+   1. Tropical Storm Juliette - Severe Storms
+   2. Big Butte Wildfire, Elko, Nevada - Wildfires
+   3. Five Points Wildfire, Scotland, North Carolina - Wildfires
+
+2. Testing event categories:
+✅ Success! Found 13 event categories
+   - Drought
+   - Dust and Haze
+   - Earthquakes
+   - Floods
+   - Landslides
+
+============================================================
+TESTING MARS ROVER PHOTOS API
+============================================================
+
+1. Testing Curiosity photos by Sol (1000):
+✅ Success! Found 25 photos from Sol 1000
+   First photo: http://mars.jpl.nasa.gov/msl-raw-images/msss/01000/mcam/1000MR0044631300503690E01_DXXX.jpg
+
+2. Testing Curiosity mission manifest:
+✅ Success! Curiosity mission data:
+   Launch date: Unknown
+   Landing date: Unknown
+   Total photos: Unknown
+   Max Sol: Unknown
+
+============================================================
+TESTING NASA IMAGES API
+============================================================
+
+1. Testing image search (query: 'apollo 11'):
+✅ Success! Found 100 Apollo 11 images
+   First result: Apollo 11 spacecraft pre-launch
+   Date: 1969-07-11T00:00:00Z
+
+============================================================
+TESTING OSDR (OPEN SCIENCE DATA REPOSITORY) - COMPREHENSIVE
+============================================================
+
+1. Testing study files for OSD-87:
+✅ Success! Retrieved study files
+   Total hits: 1
+   Studies found: 0
+
+2. Testing study metadata for OSD-87:
+✅ Success! Retrieved study metadata
+   Title: Spaceflight effects on the mouse retina: Histological, gene expression and epigenetic changes after flight on STS-135
+   Identifier: OSD-87
+   Public release: 16-Dec-2016
+
+3. Testing study search (term: 'mouse'):
+✅ Success! Search completed
+   Results found: {'total': 155, 'max_score': 5.817295, 'hits': [{'_index': 'study', '_type': 'docs', '_id': 'Yt_6g4QB28eYt3lGNrYQ', '_score': 5.817295, '_source': {'Authoritative Source URL': 'GLDS-158/', 'Flight Program': '', 'Material Type': '', 'Project Identifier': '', 'Accession': 'OSD-158', 'Project Link': '', 'Study Identifier': 'E-GEOD-57196', 'Study Protocol Name': 'P-GSE57196-1     P-GSE57196-5     P-GSE57196-6     P-GSE57196-2     P-GSE57196-3     P-GSE57196-4     P-GSE57196-7', 'Study Assay Technology Type': 'DNA microarray', 'Acknowledgments': '', 'Study Assay Technology Platform': 'Agilent', 'Study Person': {'Last Name': 'Hyduke     Datta     Hyduke     Suman     Moon     Johnson     Fornace', 'Middle Initials': 'R          R               D     J', 'First Name': 'Daniel     Kamal     Daniel     Shubhankar     Bo-Hyun     Michael     Albert'}, 'Study Protocol Type': 'normalization data transformation protocol     labelling protocol     hybridization protocol     sample treatment protocol     growth protocol     nucleic acid extraction protocol     array scanning protocol', 'Space Program': '', 'Study Title': 'Exposure to ionizing radiation induced persistent gene expression changes in mouse mammary gland', 'Study Factor Type': 'Ionizing Radiation, dose', 'Study Public Release Date': '1398927600', 'Parameter Value': '', 'thumbnail': '/genelab/img/GLDS158__study_image.png', 'Study Factor Name': 'Ionizing Radiation     Dose', 'Study Assay Measurement Type': 'transcription profiling', 'Project Type': 'Ground Study', 'Factor Value': '', 'Data Source Accession': 'E-GEOD-57196', 'Data Source Type': 'cgene', 'Project Title': '', 'Study Funding Agency': 'This study supported in part by NASA Grant# NNX07AH70G. DRH was supported in part by Grant Number T32 CA009078 from the NCI.', 'Study Protocol Description': 'Images processed with feature extraction 9.1 and data were quantile normalized and baseline transformed to the median with genespring 12.6.1 ID_REF =  VALUE = quantile normalized and baseline transformed to the median     Agilent  s low RNA input linear amplification PLUS kit     Hybridized for 16 hours in a rotisserie hybridization oven with Agilent  s Gex hybridization HI-RPM buffer     Mice were placed in a circular pie shaped well-ventilated plastic mouse holder the mouse holder with mice was positioned on a rotating turntable inside the irradiator and mice were exposed to  xce xb3 radiation using a 137Cs source. Radiation dose was delivered at a rate of 1 Gy/min and a total dose of 2 Gy was delivered to the whole body and the control groups were sham irradiated. After irradiation mice were returned to their home cage and monitored regularly.     Mice (C57BL/6J female 6-8 week old) were purchased from Jackson Laboratories (Bar Harbor ME USA) and were housed at the Georgetown University xe2 x80 x99s (GU) ani- mal facility.     Trizol followed by Qiagen RNAeasy.     Scanned with Agilent DNA microarray scanner (2505A) in an ozone hood.', 'Experiment Platform': '', 'Characteristics': '', 'Study Grant Number': 'NNX07AH70G', 'Study Publication Author List': 'Datta K Hyduke DR Suman S Moon BH Johnson MD Fornace AJ Jr', 'Mission': {'End Date': '', 'Start Date': '', 'Name': ''}, 'Study Publication Title': 'Exposure to ionizing radiation induced persistent gene expression changes in mouse mammary gland.', 'Managing NASA Center': '', 'Study Description': 'Six to eight week old female C57BL/6J mice were exposed to 2 Gy of whole body  xce xb3 radiation and mammary glands were surgically removed 2-month after radiation. RNA was isolated and microarray hybridization performed for gene expression analysis. 5 samples were analyzed: 2 controls at 2 months 1 2 Gy at 2 months and 2 7 Gy at 2 months', 'organism': 'Mus musculus', 'Identifiers': 'GLDS-158'}, 'highlight': {'all': ['Exposure to ionizing radiation induced persistent gene expression changes in <em>mouse</em> mammary gland', '<em>cgene</em>', 'Gex hybridization HI-RPM buffer     Mice were placed in a circular pie shaped well-ventilated plastic <em>mouse</em>', 'holder the <em>mouse</em> holder with mice was positioned on a rotating turntable inside the irradiator and mice', 'Exposure to ionizing radiation induced persistent gene expression changes in <em>mouse</em> mammary gland.']}}, {'_index': 'study', '_type': 'docs', '_id': 'HN_6g4QB28eYt3lGMLbL', '_score': 5.081004, '_source': {'Authoritative Source URL': 'GLDS-94/', 'Flight Program': 'NA', 'Mission': {'End Date': '', 'Start Date': '', 'Name': ''}, 'Material Type': '', 'Project Identifier': 'NA', 'Accession': 'OSD-94', 'Study Identifier': 'E-GEOD-37233', 'Study Protocol Name': 'P-GSE37233-1     P-GSE37233-5     P-GSE37233-7     P-GSE37233-4     P-GSE37233-2     P-GSE37233-3     P-GSE37233-6', 'Study Assay Technology Type': 'DNA microarray', 'Acknowledgments': '', 'Study Assay Technology Platform': '', 'Study Person': {'Last Name': 'Ding     Story     Weil', 'Middle Initials': '', 'First Name': 'Lianghao     Michael     Michael'}, 'Study Protocol Type': 'bioassay_data_transformation     image_aquisition     hybridization     hybridization     nucleic_acid_extraction     labeling     feature_extraction', 'Space Program': 'NA', 'Study Title': 'DNA copy number analysis from mice with radiation-induced acute myeloid leukemia', 'Study Factor Type': 'Radiation Ionizing, Neoplasm', 'Study Public Release Date': '1349409600', 'Parameter Value': '', 'thumbnail': '/genelab/img/GLDS94__study_image.png', 'Study Factor Name': 'ionizing radiation     Neoplasm', 'Study Assay Measurement Type': 'copy number variation profiling', 'Project Type': 'Ground Study', 'Factor Value': '', 'Data Source Accession': 'E-GEOD-37233', 'Data Source Type': 'cgene', 'Project Title': '', 'Study Funding Agency': 'NSCOR grant from the National Aeronautics and Space Administration (NAG-1569 to M. Weil); the US Department of Energy Low Dose Radiation Research Program (DE-FG02-05ER63946 to M. Weil and R. Ulrich); and the National Aeronautics and Space Administration (NNX07AP85G to J.S.Bedford M. Weil and Y.Peng)', 'Study Protocol Description': 'ID_REF =  VALUE = Log2 (AML/Input) ratio     The arrays are washed and scanned at 2 uM resolution on a NimbleGen MS 200 High Resolution Scanner.     31 ug of the labeled DNA is prepared for hybridization and placed on the human or mouse 720K whole genome array and hybridized at 42C for ~72 hours using a Maui hybridization system.     31 ug of the labeled DNA is prepared for hybridization and placed on the human or mouse 385K whole genome array and hybridized at 42C for ~72 hours using a Maui hybridization system.     Spleen tissues were flash-frozen in liquid nitrogen. Isolation of genomic DNA was peroformed using Dneasy Blood & tissue Kit from Qiagen according to the manufracturer  s protocol. DNA quality and concentration was determined on the NanoDrop spectrophotometer.     Labeling reactions were prepared using the Roche NimbleGen Labeling Protocol for aCGH (Version 7.0). 1 ug of test DNA and reference DNA is labeled with Cyanine 5-Random Nonamers and Cyanine 3-Random Nonamers by Exo-Klenow fragment. Labeled DNA is then purified by isopropanol precipitation and the labeling efficiency determined by the NanoDrop spectrophotometer.     Data was processed through NimbleScan 2.6 with default settings. Data was analyzed as Cy5 vs Cy3', 'Experiment Platform': '', 'Characteristics': '', 'Study Grant Number': 'NAG-1569,DE-FG02-05ER63946,NNX07AP85G', 'Study Publication Author List': 'Steffen LS Bacher JW Peng Y Le PN Ding LH Genik PC Ray FA Bedford JS Fallgren CM Bailey SM Ullrich RL Weil MM Story MD', 'Project Link': '', 'Study Publication Title': 'Molecular characterisation of murine acute myeloid leukaemia induced by 56Fe ion and 137Cs gamma ray irradiation.', 'Managing NASA Center': '', 'Study Description': 'Certain mouse strains such as CBA C3H and RFM have high incidence of radiation-induced acute myeloid leukemia (AML). The data in this series wer generated by using spleen DNA from CBA mice which were irraidated with either gamma-rays or heavy ion (HZE) particles. Spleen DNA with radiation-induced AML was compared with DNA from normal CBA mice. Comparison of spleen DNA from CBA mice with radiation-induced AML vs genomic DNA from normal CBA mice', 'organism': 'Mus musculus', 'Identifiers': 'GLDS-94'}, 'highlight': {'all': ['<em>cgene</em>', 'Resolution Scanner.     31 ug of the labeled DNA is prepared for hybridization and placed on the human or <em>mouse</em>', 'hybridization system.     31 ug of the labeled DNA is prepared for hybridization and placed on the human or <em>mouse</em>', 'Certain <em>mouse</em> strains such as CBA C3H and RFM have high incidence of radiation-induced acute myeloid']}}, {'_index': 'study', '_type': 'docs', '_id': 'st_6g4QB28eYt3lGKLWg', '_score': 5.0599165, '_source': {'Authoritative Source URL': 'OSD-156/', 'Flight Program': '', 'Mission': {'End Date': '', 'Start Date': '', 'Name': ''}, 'Material Type': '', 'Project Identifier': 'Gamma_Irradiation, Low_LET_Irradiation, High_Dose_Irradiation', 'Accession': 'OSD-156', 'Identifiers': 'GLDS-156', 'Study Identifier': 'OSD-156', 'Study Protocol Name': 'P-GSE33172-2     P-GSE33172-5     P-GSE33172-6     P-GSE33172-8     P-GSE33172-7     P-GSE33172-1     P-GSE33172-3     P-GSE33172-4', 'Study Assay Technology Type': 'DNA microarray', 'Acknowledgments': '', 'Study Assay Technology Platform': 'Agilent', 'Study Person': {'Last Name': 'Hyduke Laiakis Li Fornace Jr', 'Middle Initials': 'R C H J', 'First Name': 'Daniel Evagelia Heng Albert'}, 'Study Protocol Type': 'specified_biomaterial_action     labeling     hybridization     feature_extraction     image_aquisition     bioassay_data_transformation     grow     nucleic_acid_extraction', 'Space Program': '', 'Study Title': 'Identifying radiation exposure biomarkers from mouse blood transcriptome', 'Study Factor Type': 'Radiation, Ionizing     dose', 'Study Public Release Date': 1338422400.0, 'Parameter Value': '', 'thumbnail': '/geode-py/ws/studies/OSD-156/image', 'Study Factor Name': 'Ionizing Radiation     Dose', 'Study Assay Measurement Type': 'transcription profiling', 'Project Type': 'Ground Study', 'Factor Value': '', 'Data Source Accession': 'E-GEOD-33172', 'Project Title': '', 'Study Funding Agency': 'DRH was supported, in part, by Grant Number T32 CA009078 from the NCI. This work was funded, in part, by the National Institutes of Health (National Institute of Allergy and Infectious Diseases) grant 5U19AI067773 to AJF and performed as part of the Columbia University Center for Medical Counter measures against Radiation.', 'Study Protocol Description': 'γ-irradiation of mice (2 and 8 Gy) and sham-treatment of controls (0 Gy) were conducted with a Cesium-137 source in a pie cage and in accordance with Georgetown University policy. Mice were euthanized 6 hours post exposure and blood samples were collected by cardiac puncture.     Cy3-labeled cRNA was generated from 400 ng total RNA using Agilent’s QuickAMP kit.     Cy3-labeled cRNA (1.65 μg) was hybridized to Agilent’s Mouse Whole Genome arrays (G4122F) with Agilent’s GEx Hybridization HI-RPM Buffer. The samples were hybridized for 16 hours in a rotisserie hybridization oven (G2545A, Agilent),     Image analysis and intra-chip normalization were performed with Feature Extraction 9.5.3.1 (Agilent). Unless otherwise noted, subsequent analyses were performed with the R statistical analysis framework (Team, 2010) and associated packages (Reimers and Carey, 2006). Probes that had intensity readings of at least 50 counts (as assessed by Feature Extraction) in over 20% of the test samples (for at least one dose) and 20% of the control samples were retained for analysis. To account for inter-chip variation, quantile normalization was performed on the retained probes using the R bioconductor limma package (Reimers and Carey, 2006).     The arrays were washed with Agilent’s gene expression wash buffers and scanned with an Agilent DNA Microarray Scanner 2505A in an ozone hood.     Bioconductor limma quantile normalized signals     Male C57BL/6N mice, ages 8-12 wks old, were obtained from Charles River Laboratories, Inc. (Wilmington, MA). Mice were housed at Georgetown University under standard 12 hr light and 12 hr dark cycle conditions and given water and regular rodent chow ad libitum. All experimental procedures and animal handling were in accordance with animal protocols approved by the Georgetown University Animal Care and Use Committee.     RNA was purified using PreAnalytiX’s PAXgene blood RNA system (Qiagen, Valencia, CA) or Ambion’s Mouse RiboPure-Blood RNA isolation kit (Applied Biosystems, Carslbad, CA). Total RNA quality was assessed with Agilent’s (Carlsbad, CA) RNA 6000 Nano Kit and Bioanalyzer 2100. Globin RNA was removed with Ambion’s Globinclear Mouse/Rat kit (Applied Biosystems).', 'Experiment Platform': '', 'Characteristics': '', 'Study Grant Number': '', 'Study Publication Author List': 'Hyduke DR1  Laiakis EC  Li HH  Fornace AJ Jr.', 'Project Link': '', 'Study Publication Title': 'Identifying radiation exposure biomarkers from mouse blood transcriptome.', 'Managing NASA Center': '', 'Study Description': 'Here, we present a whole-genome survey of the murine transcriptomic response to physiologically-relevant radiation doses, 2 and 8 Gy. There are 18 distinct biological samples here. Mice were exposed to ionizing radiation (Cesium-138 source) and whole blood was collected by cardiac puncture 6 hours post treatment. Doses were 0 (7 samples), 2 (5 samples), and 8 (6 samples) gy.', 'organism': 'Mus musculus', 'Data Source Type': 'cgene'}, 'highlight': {'all': ['Identifying radiation exposure biomarkers from <em>mouse</em> blood transcriptome', 'Cy3-labeled cRNA (1.65 μg) was hybridized to Agilent’s <em>Mouse</em> Whole Genome arrays (G4122F) with Agilent', 'Globin RNA was removed with Ambion’s Globinclear <em>Mouse</em>/Rat kit (Applied Biosystems).', 'Identifying radiation exposure biomarkers from <em>mouse</em> blood transcriptome.', '<em>cgene</em>']}}, {'_index': 'study', '_type': 'docs', '_id': 'DN_6g4QB28eYt3lGS7el', '_score': 4.7292824, '_source': {'Authoritative Source URL': 'OSD-432/', 'Flight Program': '', 'Mission': {'End Date': '', 'Start Date': '', 'Name': ''}, 'Material Type': 'thymic lymphoma', 'Project Identifier': 'X-Ray_Irradiation, High_Dose_Irradiation, Low_LET_Irradiation', 'Accession': 'OSD-432', 'Identifiers': 'GLDS-432', 'Study Identifier': 'OSD-432', 'Study Protocol Name': 'irradiation protocol     RNA Extraction     Labeling     Nucleic Acid Hybridization     Data Collection', 'Study Assay Technology Type': 'DNA microarray', 'Acknowledgments': '', 'Study Assay Technology Platform': 'Agilent', 'Study Person': {'Last Name': 'Snijders', 'Middle Initials': 'M', 'First Name': 'Antoine'}, 'Study Protocol Type': 'acute     RNA Extraction     Labeling     Nucleic Acid Hybridization     Data Collection', 'Space Program': '', 'Study Title': 'Expression profiling reveals transcriptional regulation by Fbxw7/mTOR pathway in radiation-induced mouse thymic lymphomas', 'Study Factor Type': 'ionizing radiation     Genotype     treatment', 'Study Public Release Date': 1444867200.0, 'Parameter Value': '', 'thumbnail': '/geode-py/ws/studies/OSD-432/image', 'Study Factor Name': 'Ionizing Radiation     Genotype     Treatment', 'Study Assay Measurement Type': 'transcription profiling', 'Project Type': 'Ground Study', 'Factor Value': '', 'Data Source Accession': 'GSE71975', 'Project Title': '', 'Study Funding Agency': 'This work was supported by the NIH, National Cancer Institute grant R01 CA116481, and Low Dose Scientific Focus Area, Office of Biological and Environmental Research, U.S. Department of Energy under Contract No. DE AC02-05CH11231.', 'Study Protocol Description': "All animal experiments were performed at Lawrence Berkeley National Laboratory and the study was carried out in strict accordance with the Guide for the Care and Use of Laboratory Animals of the National Institutes of Health. The animal use protocol was approved by the Animal Welfare and Research Committee of the Lawrence Berkeley National Laboratory. Detailed methods were described previously. Briefly, p53+/− and p53+/− Fbxw7+/− mice were generated by crossing p53−/− mice with Fbxw7+/− mice. At 5 weeks of age, mice were exposed whole-body to a single dose of 4 Gy X-ray irradiation. Mice were divided randomly into two groups and treated with rapamycin or placebo.     Total RNA was isolated by homogenizing the frozen tissue in Trizol reagent (Invitrogen) followed by phase separation using chloroform. RNA was further purified utilizing the RNeasy mini kit (Qiagen; 74104) and DNA was removed using RNase-free DNase (Qiagen; 79254).     Cy3. All processes were performed by Ambry Genetics (Aliso Viejo, CA).     Hybridizations was performed commercially by Ambry Genetics (Aliso Viejo, CA).     Agilent SurePrint G3 Mouse GE 8 × 60 K Microarrays were used according to the manufacturer's protocol (arrays contained 39,430 Entrez gene RNAs and 16,251 lncRNAs).", 'Experiment Platform': '', 'Characteristics': '', 'Study Grant Number': '', 'Study Publication Author List': 'Snijders AM  Liu Y  Su L  Huang Y  Mao JH.     Snijders AM  Mao JH.', 'Project Link': '', 'Study Publication Title': 'Expression profiling reveals transcriptional regulation by Fbxw7/mTOR pathway in radiation-induced mouse thymic lymphomas.     Co-Expression Network Analysis of Fbxw7-Associated LncRNAs Reveals Their Functions in Radiation-Induced Thymic Lymphoma.', 'Managing NASA Center': '', 'Study Description': 'We used gene transcript profiling to gain a deeper understanding of the role of FBXW7 in tumor development and to determine the influence of mTOR inhibition by rapamycin on tumor transcriptome and biological functions. In comparison to tumors from p53 single heterozygous (p53+/-) mice, we find that tumors from Fbxw7/p53 double heterozygous (Fbxw7+/-p53+/-) mice show significant deregulation of cholesterol metabolic processes independent of rapamycin treatment, while cell cycle related genes were upregulated in tumors from placebo treated Fbxw7+/-p53+/- mice, but not in tumors from rapamycin treated Fbxw7+/-p53+/- mice. On the other hand, tumors from rapamycin treated Fbxw7+/-p53+/- mice were enriched for genes involved in the integrated stress response, an adaptive mechanism to survive in stressful environments. p53+/− and p53+/−Fbxw7+/− mice were generated by crossing p53-/- mice with Fbxw7+/- mice. At 5 weeks of age, mice were exposed whole-body to a single dose of 4 Gy X-ray irradiation. Mice were divided randomly into two groups and treated with rapamycin or placebo. RNA was isolated from thymic lymphomas.', 'organism': 'Mus musculus', 'Data Source Type': 'cgene'}, 'highlight': {'all': ['Expression profiling reveals transcriptional regulation by Fbxw7/mTOR pathway in radiation-induced <em>mouse</em>', "Agilent SurePrint G3 <em>Mouse</em> GE 8 × 60 K Microarrays were used according to the manufacturer's protocol", 'Expression profiling reveals transcriptional regulation by Fbxw7/mTOR pathway in radiation-induced <em>mouse</em>', '<em>cgene</em>']}}, {'_index': 'study', '_type': 'docs', '_id': '6t_6g4QB28eYt3lGLbUP', '_score': 4.5337677, '_source': {'Authoritative Source URL': 'OSD-33/', 'Flight Program': 'International Space Station (ISS)', 'Mission': {'End Date': '27-Nov-2009', 'Start Date': '28-Aug-2009', 'Name': 'STS-128'}, 'Material Type': 'Brain', 'Project Identifier': '', 'Accession': 'OSD-33', 'Identifiers': 'GLDS-33', 'Study Identifier': 'OSD-33', 'Study Protocol Name': 'Animal Husbandry     nucleic acid extraction     labeling     hybridization     feature extraction     image acquisition     bioassay data transformation', 'Study Assay Technology Type': 'DNA microarray', 'Acknowledgments': '', 'Study Assay Technology Platform': 'CustomArray', 'Study Person': {'Last Name': 'Ohira Ohira', 'Middle Initials': '', 'First Name': 'Yoshinobu Takashi'}, 'Study Protocol Type': 'Animal Husbandry     nucleic acid extraction     labeling     hybridization     feature extraction     image acquisition     bioassay data transformation', 'Space Program': 'JAXA, ESA', 'Study Title': 'Gene responses in mouse brain to long-term exposure to microgravity', 'Study Factor Type': 'Space Flight     animal cage', 'Study Public Release Date': 1347494400.0, 'Parameter Value': '', 'thumbnail': '/geode-py/ws/studies/OSD-33/image', 'Study Factor Name': 'Spaceflight     Cage', 'Study Assay Measurement Type': 'transcription profiling', 'Project Type': 'Flight Study', 'Factor Value': '', 'Data Source Accession': 'E-GEOD-32077', 'Project Title': 'Mice Drawer System Experiment', 'Study Funding Agency': 'ESA', 'Study Protocol Description': "Male wild type C57BL/10J mice (8 weeks old at the beginning of experiment) were utilized (n equals 3). They were individually housed in mouse drawer system (MDS, 11.6 x 9.8 x 8.4 cm), which is a payload developed by Alenia-Space. Food and water were supplied ad libitum. These mice were launched by Space Shuttle Discovery (space transport system, STS-128) at August 28, 2009. They were housed in Japanese Experimental Module (Kibou) on the ISS until they returned to the Earth by Space Shuttle Atlantis (STS-129) on November 27, 2009. Only one mouse returned to the Earth alive. Whole brain was sampled from the mouse killed by inhalation of carbon dioxide at the Life Sciences Support Facility of Kennedy Space Center within 3-4 hours after landing. After the spaceflight experiment, the on-ground experiment was also carried out at the Advanced Biotechnology Center in Genova, Italy. A mouse with the same species, sex, and age was housed in MDS for 3 months as the ground control (GC). Another mouse was housed in normal vivarium cage as the laboratory control (LC). Amount of food and water supplementation and environmental conditions were simulated as the flight group. After 3 months, brain was sampled from one mouse in group GC and LC, respectively.     Approximately 100mg of brain tissue from each of the snap-frozen mouse whole brain samples were collected, and total RNA was extracted by RNeasy Mini Kit according to the manufacturer's protocol provided in the kit (QIAGEN, cat#74903).     1 ug of total RNA was reverse-transcribed using T7-oligo-dT primer and produced cDNA was double-stranded by Amino Allyl MessageAmp II aRNA Amplification Kit (Ambion, cat#AM1753). From ds-cDNA, aRNA was amplified and labeled with amino allyl UTP, and then Cy5-coupling to amino allyl modified aRNA was carried out according to the instruction of the Amino Allyl MessageAmp II aRNA Amplification Kit.     5 ug of the purified Cy5-aRNA sample was dissolved in 100 ul of hybridization solution (CombiMatrix CustomArray 12K Hybridization and Imaging Protocol: PTL006), and hybridization reaction was carried out at 45 C for 16hours. 70 Negative control probes (derived from bacteria, plants, and bacteriophages) were spotted, and 326 factory QC probes were also spotted on the microarray. In addition, there were 148 empty (blank) spots available for background signal measurement.  Therefore, signal data from total of 544 control spots were included in 12,544-spot data on the custom-designed Mus musculus 12K oligo DNA microarray.     The raw data (Mm_B-GC_RawData_for_GEO.txt, Mm_B-LC_RawData_for_GEO.txt, and Mm_B-SF_RawData_for_GEO.txt) were obtained from the scanned images using MicroarrayImager ver.6.0.1 (CombiMatrix Corp.), and were background-subtracted and median-normalized by Microsoft Office Excel 2003 within each of the microarray. We employed simple fold-difference calculation using Microsoft Office Excel 2003 for each of the spot intensities between GC:LC, GC:SF, and LC:SF. Since sample number (n) was 1 for all of the condition groups, there was no application of statistical analysis for this data processing.     The microarrays went through post-hybridization washes according to CombiMatrix CustomArray 12K Hybridization and Imaging Protocol (PTL006), and they were scaned by Axon Instruments' GenePix 4000B scanner (5 um resolution, PMT gain at 500, Laser power at 100%).     ID_REF equals VALUE equals Background-subtracted and median-normalized signal intensity", 'Experiment Platform': 'Mice Drawer System (MDS)', 'Characteristics': '', 'Study Grant Number': '', 'Study Publication Author List': 'Santucci D  Kawano F  Ohira T  Terada M  Nakai N  Francia N  Alleva E  Aloe L  Ochiai T  Cancedda R  Goto K  Ohira Y.', 'Project Link': 'http://www.nasa.gov/mission_pages/station/research/experiments/331.html', 'Study Publication Title': 'Evaluation of gene, protein and neurotrophin expression in the brain of mice exposed to space environment for 91 days.', 'Managing NASA Center': '', 'Study Description': 'The spaceflight experiment was carried out using male C57BL/10J mice (8 weeks old at launch). Wild type mice (n equals 3) were launched by Space Shuttle Discovery and housed on the International Space Station (ISS) for 91 days. They returned to the Earth by Space Shuttle Atlantis. But only one mouse returned to the Earth alive. Whole brain was sampled from the mouse killed by inhalation of carbon dioxide at the Life Sciences Support Facility of Kennedy Space Center within 3-4 hours after landing. After the spaceflight experiment, the on-ground experiment was also carried out at the Advanced Biotechnology Center in Genova, Italy. A mouse with the same species, sex, and age was housed in mice drawer system (MDS), which was utilized for the spaceflight (SF) mice, for 3 months as the ground control (GC). Another mouse was housed in normal vivarium cage as the laboratory control (LC). Amount of food and water supplementation and environmental conditions were simulated as the flight group. After 3 months, brain was sampled from one mouse in group GC and LC, respectively. Comprehensive analyses of gene expression were performed in the right brain. Total of 4,000 genes were analyzed. The expression levels of 60 genes significantly changed in response to SF compared with LC and/or GC. The 15 and 16 genes were up- (greater than 2 folds) and down-regulated (less than 0.5 folds), respectively, following SF vs. GC. The levels of 58 genes were significantly altered by housing in MDS in space and/or on the ground. Forty seven and 11 genes were significantly up- and down-regulated vs. LC. Twenty seven out of these genes responded to caging in MDS both in space and on the ground. Further, 31 genes were influenced by housing in MDS on the Earth. Responses of the characteristics of brain to long-term gravitational unloading were investigated in mice.', 'organism': 'Mus musculus', 'Data Source Type': 'cgene'}, 'highlight': {'all': ['Gene responses in <em>mouse</em> brain to long-term exposure to microgravity', 'Only one <em>mouse</em> returned to the Earth alive.', 'Another <em>mouse</em> was housed in normal vivarium cage as the laboratory control (LC).', 'But only one <em>mouse</em> returned to the Earth alive.', '<em>cgene</em>']}}]}
+
+4. Testing missions metadata:
+❌ Failed to retrieve missions
+
+5. Testing specific mission (SpaceX-12):
+✅ Success! Retrieved SpaceX-12 mission
+   Identifier: SpaceX-12
+   Start date: 08/14/2017
+   End date: 09/17/2017
+   Aliases: SpX-12, Increment 52/53, CRS-12
+
+6. Testing vehicles metadata:
+❌ Failed to retrieve vehicles
+
+============================================================
+TESTING LEGACY OSDP CLASS
+============================================================
+
+1. Testing legacy osdp with single study (87):
+✅ Success! Legacy osdp working
+   Total hits: 1
+   Studies: 1
+
+2. Testing legacy osdp with multiple studies ([86, 87]):
+✅ Success! Legacy osdp with multiple studies
+   Total hits: 2
+   Studies found: ['OSD-86', 'OSD-87']
+
+================================================================================
+🎉 ALL TESTS COMPLETED!
+================================================================================
+Testing Enhanced ISS API...
+==================================================
+
+1. Testing current ISS position (ID: 25544):
+✅ Success! ISS is currently at:
+   Latitude: -1.58°
+   Longitude: 104.02°
+   Altitude: 417.11 km
+   Velocity: 27583.35 km/h
+   Visibility: daylight
+
+2. Testing ISS TLE data:
+✅ Success! TLE data retrieved:
+   Satellite: iss
+   TLE Timestamp: 1756056105
+   Line 1: 1 25544U 98067A   25236.72343932  .00011034  00000...
+
+3. Testing ISS overhead check (London: 51.5074, -0.1278):
+✅ ISS is not currently overhead London
+
+4. Testing coordinate information for ISS current position:
+✅ Success! ISS is currently over:
+   Country: ID
+   Timezone: Asia/Jakarta
+
+5. Testing satellites list:
+✅ Success! Available satellites:
+   iss (ID: 25544)
+
+==================================================
+ISS API testing complete!
+
+🎯 ALL API TESTING COMPLETED!
+Ready for Open Space Data Hub integration!
