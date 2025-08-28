@@ -22,12 +22,15 @@ from api.mars import (
     NasaImages,
     Epic,
     Donki,
+    Eonet
+)
 
 import sqlite3
 import json
 from pathlib import Path
 import hashlib
 from typing import Union
+from datetime import datetime
 
 # Database setup for query caching and analytics
 DB_PATH = Path("search_analytics.db")
