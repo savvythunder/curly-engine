@@ -22,6 +22,143 @@ from api.mars import (
     NasaImages,
     Epic,
     Donki,
+
+import sqlite3
+import json
+from pathlib import Path
+import hashlib
+from typing import Union
+
+# Database setup for query caching and analytics
+DB_PATH = Path("search_analytics.db")
+
+def init_database():
+    """Initialize SQLite database for search analytics and caching"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Query analytics table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS query_analytics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            query_text TEXT NOT NULL,
+            query_hash TEXT UNIQUE,
+            parsed_query TEXT,
+            intent TEXT,
+            complexity_score REAL,
+            understanding_score REAL,
+            datasets_searched TEXT,
+            total_results INTEGER,
+            response_time_ms REAL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Result cache table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS result_cache (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            query_hash TEXT UNIQUE,
+            results TEXT,
+            cache_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expiry_timestamp DATETIME
+        )
+    ''')
+    
+    # User feedback table (for future reinforcement learning)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            query_hash TEXT,
+            result_id TEXT,
+            feedback_type TEXT, -- click, star, dismiss, refine
+            feedback_value REAL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def log_search_query(query: str, parsed_query: dict, datasets: list, total_results: int, response_time: float):
+    """Log search query for analytics"""
+    try:
+        query_hash = hashlib.md5(query.encode()).hexdigest()
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT OR REPLACE INTO query_analytics 
+            (query_text, query_hash, parsed_query, intent, complexity_score, 
+             understanding_score, datasets_searched, total_results, response_time_ms)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            query,
+            query_hash,
+            json.dumps(parsed_query),
+            parsed_query.get("intent", "unknown"),
+            sum(parsed_query.get("complexity_breakdown", {}).values()),
+            parsed_query.get("understanding_score", 0.0),
+            json.dumps(datasets),
+            total_results,
+            response_time
+        ))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error logging search query: {e}")
+
+def get_cached_results(query: str) -> Union[dict, None]:
+    """Check if results are cached for this query"""
+    try:
+        query_hash = hashlib.md5(query.encode()).hexdigest()
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT results FROM result_cache 
+            WHERE query_hash = ? AND expiry_timestamp > CURRENT_TIMESTAMP
+        ''', (query_hash,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            return json.loads(result[0])
+        return None
+    except Exception as e:
+        print(f"Error checking cache: {e}")
+        return None
+
+def cache_results(query: str, results: dict, expiry_hours: int = 1):
+    """Cache search results"""
+    try:
+        query_hash = hashlib.md5(query.encode()).hexdigest()
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT OR REPLACE INTO result_cache 
+            (query_hash, results, expiry_timestamp)
+            VALUES (?, ?, datetime('now', '+{} hours'))
+        '''.format(expiry_hours), (
+            query_hash,
+            json.dumps(results)
+        ))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error caching results: {e}")
+
+# Initialize database on module load
+init_database()
+
+
     Eonet
 )
 
@@ -370,20 +507,34 @@ def unified_search(
     datasets: Optional[str] = Query("all", description="Comma-separated list: exoplanets,mars,iss,all"),
     include_correlations: Optional[bool] = Query(False, description="Include cross-dataset correlations"),
     sort_by: Optional[str] = Query("relevance", description="Sort results by: relevance, date, distance, size"),
-    filters: Optional[str] = Query(None, description="Advanced filters as JSON string")
+    filters: Optional[str] = Query(None, description="Advanced filters as JSON string"),
+    use_cache: Optional[bool] = Query(True, description="Use cached results if available")
 ):
     """
-    Advanced Unified Search with NLP and Smart Features
+    Advanced Unified Search with NLP, Semantic Understanding, and Smart Caching
 
     Example queries:
-    - "Earth-sized planets in habitable zone of sun-like stars after 2020"
-    - "Mars rover images from sol 1000 with navcam"  
+    - "Earth-sized planets in habitable zone of sun-like stars discovered after 2020"
+    - "Mars rover navcam images from sol 1000 to 1500"  
     - "ISS passes over California this week"
     - "Recent space weather events affecting Earth"
-    - "Red planet surface photos from last month"
+    - "Red planet surface photos larger than 1MB from last month"
+    - "Compare Kepler-452b with Earth characteristics"
+    - "How many confirmed exoplanets are there in 2024?"
     """
+    import time
+    start_time = time.time()
+    
     try:
-        # Advanced query parsing
+        # Check cache first
+        if use_cache:
+            cached_results = get_cached_results(q)
+            if cached_results:
+                cached_results["cached"] = True
+                cached_results["cache_hit"] = True
+                return cached_results
+        
+        # Advanced query parsing with enhanced understanding
         parsed_query = parse_natural_language_query(q)
 
         results = {
@@ -442,17 +593,92 @@ def unified_search(
         if include_correlations and results["total_results"] > 0:
             results["correlations"] = find_cross_dataset_correlations(results["datasets"])
 
-        # Sort and rank results
+        # Sort and rank results with advanced algorithms
         results = rank_and_sort_results(results, sort_by, parsed_query)
-
-        return results
+        
+        # Calculate response metadata
+        response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+        
+        # Enhanced response with explanations and metadata
+        enhanced_results = {
+            **results,
+            "query_analysis": {
+                "original_query": q,
+                "parsed_intent": parsed_query.get("intent"),
+                "understanding_score": parsed_query.get("understanding_score", 0.0),
+                "complexity": parsed_query.get("query_type"),
+                "entities_found": parsed_query.get("entities", {}),
+                "logical_operators": parsed_query.get("logical_operators", []),
+                "units_detected": parsed_query.get("units", {}),
+                "explanation": parsed_query.get("explanation", [])
+            },
+            "search_metadata": {
+                "response_time_ms": round(response_time, 2),
+                "cached": False,
+                "datasets_searched": search_datasets,
+                "search_algorithm": "hybrid_semantic_structured",
+                "ranking_method": sort_by,
+                "correlations_included": include_correlations
+            },
+            "performance_hints": generate_performance_suggestions(parsed_query, results["total_results"])
+        }
+        
+        # Log analytics
+        try:
+            log_search_query(
+                query=q,
+                parsed_query=parsed_query,
+                datasets=search_datasets,
+                total_results=results["total_results"],
+                response_time=response_time
+            )
+            
+            # Cache results for future queries
+            if use_cache and results["total_results"] > 0:
+                cache_results(q, enhanced_results, expiry_hours=1)
+                
+        except Exception as analytics_error:
+            print(f"Analytics logging error: {analytics_error}")
+        
+        return enhanced_results
 
     except Exception as e:
+        # Log error for analytics
+        try:
+            error_query = {"error": str(e), "query": q}
+            log_search_query(q, error_query, [], 0, 0)
+        except:
+            pass
+        
         raise HTTPException(status_code=500, detail=f"Unified search error: {str(e)}")
+
+def generate_performance_suggestions(parsed_query: dict, total_results: int) -> List[str]:
+    """Generate suggestions for improving search performance and results"""
+    suggestions = []
+    
+    if total_results == 0:
+        suggestions.append("Try broader terms or remove some filters")
+        if parsed_query.get("query_type") == "complex":
+            suggestions.append("Simplify your query - try searching for one concept at a time")
+    
+    elif total_results > 100:
+        suggestions.append("Add more specific filters to narrow results")
+        if not parsed_query.get("temporal"):
+            suggestions.append("Try adding a time range (e.g., 'after 2020')")
+    
+    if parsed_query.get("understanding_score", 0) < 0.5:
+        suggestions.append("Try using more specific astronomical terms")
+        suggestions.append("Consider rephrasing with common keywords like 'planet', 'star', 'distance'")
+    
+    intent = parsed_query.get("intent")
+    if intent == "general_search":
+        suggestions.append("Be more specific about what you want: images, data, tracking, or analysis")
+    
+    return suggestions
 
 def parse_natural_language_query(query: str) -> dict:
     """
-    Advanced NLP parsing of search queries with enhanced entity extraction and intent classification
+    Advanced NLP parsing with hierarchical ontologies, logical operators, and semantic understanding
     """
     import re
     from datetime import datetime, timedelta
@@ -467,26 +693,56 @@ def parse_natural_language_query(query: str) -> dict:
         "spatial": {},
         "confidence": 0.8,
         "query_type": "simple",
-        "keywords": []
+        "keywords": [],
+        "logical_operators": [],
+        "units": {},
+        "ranking_hints": {},
+        "explanation": []
     }
 
     query_lower = query.lower().strip()
     
     # Extract keywords (remove common stop words)
-    stop_words = {"the", "and", "or", "in", "on", "at", "to", "for", "of", "with", "by", "from", "about", "into", "through", "during", "before", "after", "above", "below", "up", "down", "out", "off", "over", "under", "again", "further", "then", "once"}
+    stop_words = {"the", "and", "or", "in", "on", "at", "to", "for", "of", "with", "by", "from", "about", "into", "through", "during", "before", "after", "above", "below", "up", "down", "out", "off", "over", "under", "again", "further", "then", "once", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "may", "might", "must", "can"}
     words = re.findall(r'\b\w+\b', query_lower)
     parsed["keywords"] = [word for word in words if word not in stop_words and len(word) > 2]
 
-    # Enhanced entity extraction with synonyms
+    # Hierarchical astronomical ontology with aliases and relationships
     entities = {
         "celestial_bodies": {
-            "earth": ["earth", "planet earth", "terra"],
-            "mars": ["mars", "red planet", "martian"],
-            "jupiter": ["jupiter", "jovian"],
-            "sun": ["sun", "solar", "star", "sol"],
-            "moon": ["moon", "lunar", "luna"],
-            "venus": ["venus", "venusian"],
-            "saturn": ["saturn", "saturnian"]
+            # Stars and stellar classification
+            "star": ["star", "stellar", "sun", "solar"],
+            "sun": ["sun", "solar", "sol", "g-type star", "main sequence", "yellow dwarf"],
+            "red_dwarf": ["red dwarf", "m-type", "m class", "red star", "m dwarf"],
+            "white_dwarf": ["white dwarf", "wd", "white star"],
+            "giant_star": ["giant star", "red giant", "blue giant", "supergiant"],
+            "binary_star": ["binary", "binary star", "double star"],
+            
+            # Planets and classification
+            "earth": ["earth", "planet earth", "terra", "blue planet"],
+            "mars": ["mars", "red planet", "martian planet", "fourth planet"],
+            "jupiter": ["jupiter", "jovian", "gas giant", "largest planet"],
+            "venus": ["venus", "venusian", "morning star", "evening star"],
+            "saturn": ["saturn", "saturnian", "ringed planet"],
+            "mercury": ["mercury", "innermost planet"],
+            "uranus": ["uranus", "ice giant"],
+            "neptune": ["neptune", "ice giant", "outermost planet"],
+            
+            # Exoplanet types
+            "exoplanet": ["exoplanet", "extrasolar planet", "planet", "extrasolar world"],
+            "super_earth": ["super-earth", "super earth", "large terrestrial"],
+            "hot_jupiter": ["hot jupiter", "hot gas giant", "close-in giant"],
+            "mini_neptune": ["mini-neptune", "mini neptune", "sub-neptune"],
+            "terrestrial": ["terrestrial", "rocky planet", "earth-like", "solid planet"],
+            
+            # Other celestial objects
+            "moon": ["moon", "lunar", "luna", "satellite", "natural satellite"],
+            "asteroid": ["asteroid", "minor planet", "space rock", "planetoid"],
+            "comet": ["comet", "icy body", "dirty snowball"],
+            "galaxy": ["galaxy", "galactic", "spiral galaxy", "elliptical galaxy"],
+            "nebula": ["nebula", "stellar nursery", "gas cloud"],
+            "black_hole": ["black hole", "blackhole", "bh"],
+            "neutron_star": ["neutron star", "pulsar", "magnetar"]
         },
         "spacecraft": {
             "iss": ["iss", "international space station", "space station"],
@@ -525,13 +781,82 @@ def parse_natural_language_query(query: str) -> dict:
         }
     }
 
-    # Match entities with synonyms
+    # Parse logical operators and comparison phrases
+    logical_patterns = {
+        "and": ["and", "with", "plus", "also", "&"],
+        "or": ["or", "either", "alternatively", "|"],
+        "not": ["not", "without", "excluding", "except", "minus"],
+        "greater_than": ["larger than", "bigger than", "greater than", "more than", "above", ">"],
+        "less_than": ["smaller than", "less than", "below", "under", "<"],
+        "equal_to": ["equal to", "exactly", "=", "equals"],
+        "between": ["between", "from", "in range"],
+        "similar_to": ["like", "similar to", "resembling", "comparable to"]
+    }
+    
+    for op_type, patterns in logical_patterns.items():
+        for pattern in patterns:
+            if pattern in query_lower:
+                parsed["logical_operators"].append({
+                    "type": op_type,
+                    "pattern": pattern,
+                    "position": query_lower.index(pattern)
+                })
+    
+    # Enhanced unit parsing and conversion
+    unit_patterns = {
+        "distance": {
+            "light_years": r'(\d+(?:\.\d+)?)\s*(?:light\s*years?|ly)',
+            "parsecs": r'(\d+(?:\.\d+)?)\s*(?:parsecs?|pc)',
+            "kilometers": r'(\d+(?:\.\d+)?)\s*(?:kilometers?|km)',
+            "astronomical_units": r'(\d+(?:\.\d+)?)\s*(?:au|astronomical\s*units?)'
+        },
+        "mass": {
+            "earth_masses": r'(\d+(?:\.\d+)?)\s*(?:earth\s*mass|earth\s*masses|me)',
+            "jupiter_masses": r'(\d+(?:\.\d+)?)\s*(?:jupiter\s*mass|jupiter\s*masses|mj)',
+            "solar_masses": r'(\d+(?:\.\d+)?)\s*(?:solar\s*mass|solar\s*masses|msun)'
+        },
+        "radius": {
+            "earth_radii": r'(\d+(?:\.\d+)?)\s*(?:earth\s*radii?|earth\s*radius|re)',
+            "jupiter_radii": r'(\d+(?:\.\d+)?)\s*(?:jupiter\s*radii?|jupiter\s*radius|rj)',
+            "solar_radii": r'(\d+(?:\.\d+)?)\s*(?:solar\s*radii?|solar\s*radius|rsun)'
+        },
+        "temperature": {
+            "kelvin": r'(\d+(?:\.\d+)?)\s*(?:kelvin|k)',
+            "celsius": r'(\d+(?:\.\d+)?)\s*(?:celsius|°c|degrees?\s*c)',
+            "fahrenheit": r'(\d+(?:\.\d+)?)\s*(?:fahrenheit|°f|degrees?\s*f)'
+        },
+        "time": {
+            "sols": r'sol\s*(\d+)',
+            "days": r'(\d+(?:\.\d+)?)\s*(?:days?|d)',
+            "years": r'(\d+(?:\.\d+)?)\s*(?:years?|yr)',
+            "hours": r'(\d+(?:\.\d+)?)\s*(?:hours?|hr|h)'
+        }
+    }
+    
+    for unit_category, unit_types in unit_patterns.items():
+        for unit_type, pattern in unit_types.items():
+            match = re.search(pattern, query_lower)
+            if match:
+                value = float(match.group(1))
+                parsed["units"][unit_category] = {
+                    "type": unit_type,
+                    "value": value,
+                    "raw_match": match.group(0)
+                }
+                parsed["explanation"].append(f"Detected {unit_type}: {value}")
+    
+    # Match entities with hierarchical synonyms
     for category, entity_dict in entities.items():
         found_entities = {}
         for entity, synonyms in entity_dict.items():
             for synonym in synonyms:
                 if synonym in query_lower:
-                    found_entities[entity] = synonym
+                    found_entities[entity] = {
+                        "matched_term": synonym,
+                        "canonical_name": entity,
+                        "confidence": 1.0 if synonym == entity else 0.8
+                    }
+                    parsed["explanation"].append(f"Matched {category}: {synonym} → {entity}")
                     break
         if found_entities:
             parsed["entities"][category] = found_entities
@@ -640,63 +965,299 @@ def parse_natural_language_query(query: str) -> dict:
     if any(pattern in query_lower for pattern in location_patterns["overhead"]):
         parsed["spatial"]["overhead"] = True
 
-    # Enhanced intent classification with confidence scoring
+    # Advanced multi-dimensional intent classification
     intent_patterns = {
         "tracking": {
-            "keywords": ["position", "location", "overhead", "tracking", "orbit", "path", "trajectory", "passes"],
-            "weight": 0.9
+            "keywords": ["position", "location", "overhead", "tracking", "orbit", "path", "trajectory", "passes", "visible", "when", "where"],
+            "weight": 0.9,
+            "context_hints": ["real-time", "current", "now", "live"]
         },
         "imagery": {
-            "keywords": ["image", "photo", "picture", "gallery", "visual", "camera", "snapshot", "pic"],
-            "weight": 0.85
+            "keywords": ["image", "photo", "picture", "gallery", "visual", "camera", "snapshot", "pic", "show", "view", "display"],
+            "weight": 0.85,
+            "context_hints": ["latest", "recent", "best", "high resolution"]
         },
         "discovery": {
-            "keywords": ["discover", "found", "detect", "search", "identify", "confirmed", "new"],
-            "weight": 0.8
+            "keywords": ["discover", "found", "detect", "search", "identify", "confirmed", "new", "latest", "recent"],
+            "weight": 0.8,
+            "context_hints": ["breakthrough", "first", "novel", "unprecedented"]
         },
+        "comparison": {
+            "keywords": ["compare", "versus", "vs", "difference", "similar", "like", "than", "between"],
+            "weight": 0.85,
+            "context_hints": ["larger", "smaller", "better", "closer"]
+        },
+        "aggregation": {
+            "keywords": ["count", "how many", "total", "number", "list", "all", "statistics", "summary"],
+            "weight": 0.9,
+            "context_hints": ["average", "median", "distribution", "histogram"]
+        },
+        "prediction": {
+            "keywords": ["predict", "forecast", "future", "will", "next", "upcoming", "schedule"],
+            "weight": 0.8,
+            "context_hints": ["tomorrow", "tonight", "this week", "hours from now"]
+        },
+
+
+@app.get("/api/search/advanced-analytics")
+def get_advanced_search_analytics():
+    """Get comprehensive search analytics and insights"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Query statistics
+        cursor.execute('''
+            SELECT 
+                COUNT(*) as total_queries,
+                AVG(response_time_ms) as avg_response_time,
+                AVG(understanding_score) as avg_understanding,
+                AVG(total_results) as avg_results_per_query
+            FROM query_analytics 
+            WHERE timestamp > datetime('now', '-7 days')
+        ''')
+        stats = cursor.fetchone()
+        
+        # Intent distribution
+        cursor.execute('''
+            SELECT intent, COUNT(*) as count
+            FROM query_analytics 
+            WHERE timestamp > datetime('now', '-7 days')
+            GROUP BY intent 
+            ORDER BY count DESC
+        ''')
+        intent_dist = cursor.fetchall()
+        
+        # Popular entities
+        cursor.execute('''
+            SELECT query_text, COUNT(*) as frequency
+            FROM query_analytics 
+            WHERE timestamp > datetime('now', '-7 days')
+            GROUP BY query_text
+            ORDER BY frequency DESC
+            LIMIT 10
+        ''')
+        popular_queries = cursor.fetchall()
+        
+        # Performance insights
+        cursor.execute('''
+            SELECT 
+                complexity_score,
+                AVG(response_time_ms) as avg_time,
+                AVG(total_results) as avg_results
+            FROM query_analytics 
+            WHERE timestamp > datetime('now', '-7 days')
+            GROUP BY ROUND(complexity_score)
+            ORDER BY complexity_score
+        ''')
+        complexity_performance = cursor.fetchall()
+        
+        conn.close()
+        
+        return {
+            "period": "Last 7 days",
+            "overview": {
+                "total_queries": stats[0] if stats[0] else 0,
+                "avg_response_time_ms": round(stats[1], 2) if stats[1] else 0,
+                "avg_understanding_score": round(stats[2], 3) if stats[2] else 0,
+                "avg_results_per_query": round(stats[3], 1) if stats[3] else 0
+            },
+            "intent_distribution": [{"intent": row[0], "count": row[1]} for row in intent_dist],
+            "popular_queries": [{"query": row[0], "frequency": row[1]} for row in popular_queries],
+            "complexity_performance": [
+                {
+                    "complexity_level": int(row[0]) if row[0] else 0,
+                    "avg_response_time": round(row[1], 2) if row[1] else 0,
+                    "avg_results": round(row[2], 1) if row[2] else 0
+                } for row in complexity_performance
+            ],
+            "recommendations": generate_system_recommendations(stats, intent_dist)
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")
+
+def generate_system_recommendations(stats, intent_dist) -> List[str]:
+    """Generate system optimization recommendations based on analytics"""
+    recommendations = []
+    
+    if stats and stats[1] and stats[1] > 2000:  # avg response time > 2 seconds
+        recommendations.append("Consider implementing more aggressive caching")
+    
+    if intent_dist:
+        top_intent = max(intent_dist, key=lambda x: x[1])
+        if top_intent[0] == "general_search":
+            recommendations.append("Users need better query guidance - consider search suggestions")
+    
+    recommendations.append("Monitor cache hit rates to optimize performance")
+    
+    return recommendations
+
+@app.get("/api/search/query-insights/{query_hash}")
+def get_query_insights(query_hash: str):
+    """Get detailed insights for a specific query"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT query_text, parsed_query, response_time_ms, total_results, timestamp
+            FROM query_analytics 
+            WHERE query_hash = ?
+            ORDER BY timestamp DESC
+            LIMIT 10
+        ''', (query_hash,))
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        if not results:
+            raise HTTPException(status_code=404, detail="Query not found")
+        
+        insights = []
+        for row in results:
+            parsed = json.loads(row[1]) if row[1] else {}
+            insights.append({
+                "query_text": row[0],
+                "parsed_analysis": parsed,
+                "response_time_ms": row[2],
+                "total_results": row[3],
+                "timestamp": row[4]
+            })
+        
+        return {
+            "query_hash": query_hash,
+            "execution_history": insights,
+            "performance_trend": analyze_performance_trend(insights)
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Query insights error: {str(e)}")
+
+def analyze_performance_trend(insights: List[dict]) -> dict:
+    """Analyze performance trends for a query"""
+    if len(insights) < 2:
+        return {"trend": "insufficient_data"}
+    
+    response_times = [insight["response_time_ms"] for insight in insights if insight["response_time_ms"]]
+    
+    if len(response_times) >= 2:
+        recent_avg = sum(response_times[:3]) / min(3, len(response_times))
+        older_avg = sum(response_times[-3:]) / min(3, len(response_times[-3:]))
+        
+        if recent_avg < older_avg * 0.8:
+            return {"trend": "improving", "improvement_pct": round((older_avg - recent_avg) / older_avg * 100, 1)}
+        elif recent_avg > older_avg * 1.2:
+            return {"trend": "degrading", "degradation_pct": round((recent_avg - older_avg) / older_avg * 100, 1)}
+    
+    return {"trend": "stable"}
+
+
         "space_weather": {
-            "keywords": ["weather", "space weather", "flare", "cme", "storm", "aurora", "radiation"],
-            "weight": 0.95
+            "keywords": ["weather", "space weather", "flare", "cme", "storm", "aurora", "radiation", "solar activity"],
+            "weight": 0.95,
+            "context_hints": ["dangerous", "alert", "warning", "impact"]
         },
-        "analysis": {
-            "keywords": ["analyze", "compare", "study", "research", "correlation", "statistics"],
-            "weight": 0.7
+        "habitability": {
+            "keywords": ["habitable", "life", "livable", "goldilocks", "habitable zone", "biosignature", "atmosphere"],
+            "weight": 0.9,
+            "context_hints": ["potentially", "candidate", "suitable", "conditions"]
         },
         "mission": {
-            "keywords": ["mission", "launch", "landing", "flight", "operation", "rover", "spacecraft"],
-            "weight": 0.75
+            "keywords": ["mission", "launch", "landing", "flight", "operation", "rover", "spacecraft", "exploration"],
+            "weight": 0.75,
+            "context_hints": ["successful", "failed", "ongoing", "planned"]
+        },
+        "visualization": {
+            "keywords": ["plot", "chart", "graph", "map", "visualization", "render", "display", "show me"],
+            "weight": 0.8,
+            "context_hints": ["interactive", "3d", "animated", "time series"]
         }
     }
     
+    # Multi-dimensional intent scoring with context awareness
     intent_scores = {}
     for intent, data in intent_patterns.items():
         score = 0
+        keyword_matches = 0
+        context_boost = 0
+        
+        # Base keyword scoring
         for keyword in data["keywords"]:
             if keyword in query_lower:
                 score += data["weight"]
-        if score > 0:
-            intent_scores[intent] = score
+                keyword_matches += 1
+        
+        # Context hint bonus
+        for hint in data.get("context_hints", []):
+            if hint in query_lower:
+                context_boost += 0.2
+        
+        # Logical operator relevance
+        for op in parsed["logical_operators"]:
+            if intent in ["comparison", "aggregation"] and op["type"] in ["greater_than", "less_than", "between"]:
+                score += 0.3
+        
+        # Unit presence boost
+        if parsed["units"] and intent in ["comparison", "aggregation", "discovery"]:
+            score += 0.2
+        
+        final_score = score + context_boost
+        if final_score > 0:
+            intent_scores[intent] = {
+                "score": final_score,
+                "keyword_matches": keyword_matches,
+                "context_boost": context_boost,
+                "confidence": min(final_score / 2.0, 1.0)
+            }
     
     if intent_scores:
-        parsed["intent"] = max(intent_scores, key=intent_scores.get)
-        parsed["confidence"] = min(intent_scores[parsed["intent"]] / len(parsed["keywords"]) if parsed["keywords"] else 1, 1.0)
+        best_intent = max(intent_scores, key=lambda x: intent_scores[x]["score"])
+        parsed["intent"] = best_intent
+        parsed["confidence"] = intent_scores[best_intent]["confidence"]
+        parsed["intent_analysis"] = intent_scores
+        parsed["explanation"].append(f"Primary intent: {best_intent} (confidence: {parsed['confidence']:.2f})")
     
-    # Determine query complexity
-    complexity_factors = [
-        len(parsed["entities"]),
-        len(parsed["filters"]),
-        len(parsed["temporal"]),
-        len(parsed["numerical"]),
-        len(parsed["spatial"])
-    ]
-    total_complexity = sum(complexity_factors)
+    # Enhanced complexity analysis
+    complexity_factors = {
+        "entities": len(parsed["entities"]),
+        "logical_operators": len(parsed["logical_operators"]),
+        "temporal_constraints": len(parsed["temporal"]),
+        "numerical_constraints": len(parsed["numerical"]),
+        "spatial_constraints": len(parsed["spatial"]),
+        "units": len(parsed["units"]),
+        "filters": len(parsed["filters"])
+    }
     
+    total_complexity = sum(complexity_factors.values())
+    parsed["complexity_breakdown"] = complexity_factors
+    
+    # Adaptive complexity classification
     if total_complexity <= 2:
         parsed["query_type"] = "simple"
-    elif total_complexity <= 5:
+        parsed["ranking_hints"]["simplicity_boost"] = 0.1
+    elif total_complexity <= 6:
         parsed["query_type"] = "moderate"
+        parsed["ranking_hints"]["balanced_scoring"] = True
     else:
         parsed["query_type"] = "complex"
+        parsed["ranking_hints"]["precision_over_recall"] = True
+        parsed["ranking_hints"]["detailed_explanation"] = True
+    
+    # Query understanding score
+    understanding_score = (
+        len(parsed["entities"]) * 0.2 +
+        len(parsed["logical_operators"]) * 0.15 +
+        (1 if parsed["intent"] != "general_search" else 0) * 0.3 +
+        len(parsed["units"]) * 0.1 +
+        len(parsed["temporal"]) * 0.1 +
+        len(parsed["filters"]) * 0.15
+    )
+    
+    parsed["understanding_score"] = min(understanding_score, 1.0)
+    parsed["explanation"].append(f"Query understanding: {parsed['understanding_score']:.2f}")
 
     return parsed
 
@@ -1059,36 +1620,79 @@ def get_search_analytics():
 
     return suggestions[:3] + trending[:2]
 
+def calculate_semantic_similarity(text1: str, text2: str) -> float:
+    """Calculate semantic similarity between two texts using simple word overlap"""
+    # Simple implementation - in production, use sentence transformers or similar
+    words1 = set(text1.lower().split())
+    words2 = set(text2.lower().split())
+    
+    if not words1 or not words2:
+        return 0.0
+    
+    intersection = words1.intersection(words2)
+    union = words1.union(words2)
+    
+    return len(intersection) / len(union) if union else 0.0
+
+def calculate_fuzzy_similarity(text1: str, text2: str) -> float:
+    """Calculate fuzzy string similarity using simple character-based approach"""
+    # Simple Levenshtein-like similarity
+    if not text1 or not text2:
+        return 0.0
+    
+    max_len = max(len(text1), len(text2))
+    if max_len == 0:
+        return 1.0
+    
+    # Simple character overlap ratio
+    common_chars = sum(1 for a, b in zip(text1.lower(), text2.lower()) if a == b)
+    return common_chars / max_len
+
 def add_relevance_scores_advanced(results: List, query: str, parsed_query: dict) -> List:
-    """Enhanced relevance scoring with multiple factors and weighted scoring"""
+    """Enhanced relevance scoring with semantic similarity, fuzzy matching, and multi-factor analysis"""
     if not isinstance(results, list):
         return results
 
     query_lower = query.lower()
     keywords = parsed_query.get("keywords", [])
     intent = parsed_query.get("intent", "general_search")
+    logical_ops = parsed_query.get("logical_operators", [])
+    units = parsed_query.get("units", {})
+    understanding_score = parsed_query.get("understanding_score", 0.8)
     
     for item in results:
         score = 0.0
         scoring_details = {}
 
-        # Name matching with keyword relevance (25% weight)
+        # Multi-dimensional name matching (20% weight)
         name_score = 0.0
         if isinstance(item, dict) and "pl_name" in item and item["pl_name"]:
             name = str(item["pl_name"]).lower()
             
-            # Exact keyword matches
+            # Exact keyword matches (high weight)
+            exact_matches = 0
             for keyword in keywords:
                 if keyword in name:
-                    name_score += 0.8
+                    name_score += 1.0
+                    exact_matches += 1
             
-            # Partial query matches
-            for word in query_lower.split():
-                if len(word) > 2 and word in name:
-                    name_score += 0.5
+            # Fuzzy matching for typos and variations
+            for keyword in keywords:
+                fuzzy_sim = calculate_fuzzy_similarity(keyword, name)
+                if fuzzy_sim > 0.7:  # Threshold for considering fuzzy match
+                    name_score += fuzzy_sim * 0.6
+            
+            # Semantic similarity
+            semantic_sim = calculate_semantic_similarity(query_lower, name)
+            name_score += semantic_sim * 0.4
+            
+            # Normalize by number of keywords to prevent inflation
+            if keywords:
+                name_score = name_score / len(keywords)
         
         scoring_details["name_match"] = name_score
-        score += name_score * 0.25
+        scoring_details["exact_matches"] = exact_matches if 'exact_matches' in locals() else 0
+        score += name_score * 0.20
 
         # Temporal relevance (20% weight)
         temporal_score = 0.0
@@ -1166,30 +1770,139 @@ def add_relevance_scores_advanced(results: List, query: str, parsed_query: dict)
         scoring_details["habitability_score"] = hab_score
         score += hab_score * 0.10
 
-        # Intent-specific bonuses (10% weight)
+        # Logical operator compliance (15% weight)
+        logic_score = 0.0
+        logic_violations = 0
+        
+        for op in logical_ops:
+            op_type = op["type"]
+            if op_type == "greater_than" and "pl_rade" in item and item["pl_rade"]:
+                # Look for size comparisons in query context
+                if "earth" in query_lower and item["pl_rade"] > 1.0:
+                    logic_score += 0.8
+                elif "jupiter" in query_lower and item["pl_rade"] > 11.0:
+                    logic_score += 0.8
+            elif op_type == "less_than" and "pl_rade" in item and item["pl_rade"]:
+                if "earth" in query_lower and item["pl_rade"] < 1.0:
+                    logic_score += 0.8
+            elif op_type == "similar_to":
+                # Boost items that match comparison targets
+                logic_score += 0.5
+        
+        scoring_details["logical_compliance"] = logic_score
+        score += logic_score * 0.15
+
+        # Enhanced intent-specific scoring (15% weight)
         intent_score = 0.0
-        if intent == "discovery" and "disc_year" in item:
-            # Boost newer discoveries for discovery intent
-            years_ago = datetime.now().year - item["disc_year"]
-            intent_score += max(0, 1.0 - (years_ago * 0.05))
-        elif intent == "analysis" and "st_teff" in item:
-            # Boost planets with complete stellar data for analysis
-            if item["st_teff"] and "st_spectype" in item and item["st_spectype"]:
+        
+        if intent == "discovery":
+            if "disc_year" in item and item["disc_year"]:
+                years_ago = datetime.now().year - item["disc_year"]
+                intent_score += max(0, 1.0 - (years_ago * 0.03))  # Recent discoveries
+        
+        elif intent == "habitability":
+            if "pl_orbsmax" in item and item["pl_orbsmax"]:
+                # Habitable zone bonus
+                if 0.75 <= item["pl_orbsmax"] <= 1.77:
+                    intent_score += 1.0
+                elif 0.5 <= item["pl_orbsmax"] <= 2.5:
+                    intent_score += 0.5
+            if "pl_rade" in item and item["pl_rade"]:
+                # Earth-like size bonus for habitability
+                if 0.8 <= item["pl_rade"] <= 1.25:
+                    intent_score += 0.7
+        
+        elif intent == "comparison":
+            # Boost objects with complete data for comparison
+            data_completeness = 0
+            comparison_fields = ["pl_rade", "pl_masse", "st_teff", "sy_dist", "pl_orbsmax"]
+            for field in comparison_fields:
+                if field in item and item[field] is not None:
+                    data_completeness += 0.2
+            intent_score += data_completeness
+        
+        elif intent == "aggregation":
+            # For statistical queries, boost confirmed planets
+            if "pl_name" in item and "candidate" not in str(item["pl_name"]).lower():
                 intent_score += 0.8
         
         scoring_details["intent_bonus"] = intent_score
-        score += intent_score * 0.10
+        score += intent_score * 0.15
 
-        # Apply confidence modifier
-        confidence = parsed_query.get("confidence", 0.8)
-        score *= confidence
+        # Unit-based filtering compliance (10% weight)
+        unit_score = 0.0
+        for unit_category, unit_data in units.items():
+            if unit_category == "distance" and "sy_dist" in item:
+                # Distance unit matching
+                if unit_data["type"] == "light_years" and item["sy_dist"]:
+                    unit_score += 0.5
+            elif unit_category == "radius" and "pl_rade" in item:
+                # Radius unit matching
+                if unit_data["type"] == "earth_radii" and item["pl_rade"]:
+                    unit_score += 0.5
+        
+        scoring_details["unit_compliance"] = unit_score
+        score += unit_score * 0.10
 
-        # Store scoring details for debugging
-        item["_relevance_score"] = round(score, 3)
+        # Data quality and completeness (10% weight)
+        quality_score = 0.0
+        total_fields = ["pl_name", "pl_rade", "pl_masse", "disc_year", "st_teff", "sy_dist", "pl_orbsmax"]
+        filled_fields = sum(1 for field in total_fields if field in item and item[field] is not None)
+        quality_score = filled_fields / len(total_fields)
+        
+        scoring_details["data_quality"] = quality_score
+        score += quality_score * 0.10
+
+        # Apply understanding confidence modifier
+        score *= understanding_score
+
+        # Final score adjustments based on query complexity
+        ranking_hints = parsed_query.get("ranking_hints", {})
+        if ranking_hints.get("precision_over_recall"):
+            # For complex queries, boost high-confidence matches
+            if name_score > 0.8:
+                score *= 1.2
+        elif ranking_hints.get("simplicity_boost"):
+            # For simple queries, be more generous
+            score *= 1.1
+
+        # Store comprehensive scoring details
+        item["_relevance_score"] = round(score, 4)
         item["_scoring_details"] = scoring_details
+        item["_explanation"] = generate_result_explanation(item, scoring_details, intent)
 
-    # Sort by relevance score, then by discovery year (newer first) as tiebreaker
-    return sorted(results, key=lambda x: (x.get("_relevance_score", 0), x.get("disc_year", 0)), reverse=True)
+    # Enhanced sorting with multiple criteria
+    return sorted(results, 
+                 key=lambda x: (
+                     x.get("_relevance_score", 0),
+                     x.get("disc_year", 0) if x.get("disc_year") else 0,
+                     -x.get("sy_dist", float('inf')) if x.get("sy_dist") else 0
+                 ), 
+                 reverse=True)
+
+def generate_result_explanation(item: dict, scoring_details: dict, intent: str) -> str:
+    """Generate human-readable explanation for why this result was ranked highly"""
+    explanations = []
+    
+    if scoring_details.get("name_match", 0) > 0.5:
+        explanations.append("strong name match")
+    
+    if scoring_details.get("temporal_match", 0) > 0.7:
+        explanations.append("recent discovery")
+    
+    if scoring_details.get("size_match", 0) > 0.8:
+        explanations.append("size criteria match")
+    
+    if scoring_details.get("habitability_score", 0) > 0.5:
+        explanations.append("potentially habitable")
+    
+    if scoring_details.get("data_quality", 0) > 0.8:
+        explanations.append("complete data")
+    
+    if intent == "discovery" and item.get("disc_year", 0) >= 2020:
+        explanations.append("recent discovery")
+    
+    return f"Ranked high due to: {', '.join(explanations)}" if explanations else "Standard relevance match"
 
 def rank_and_sort_results(results: dict, sort_by: str, parsed_query: dict) -> dict:
     """Sort and rank results based on specified criteria"""
