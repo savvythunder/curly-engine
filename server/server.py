@@ -419,21 +419,21 @@ def unified_search(
             exoplanet_results = search_exoplanets_advanced(query_lower, parsed_query, limit, advanced_filters)
             if exoplanet_results:
                 results["datasets"]["exoplanets"] = exoplanet_results
-                results["total_results"] += len(exoplanet_results.get("data", []))
+                results["total_results"] += exoplanet_results.get("count", 0)
 
         # MARS Search  
         if "mars" in search_datasets:
-            mars_results = search_mars_unified(query_lower, limit)
+            mars_results = search_mars_unified(query_lower, parsed_query, limit)
             if mars_results:
                 results["datasets"]["mars"] = mars_results
-                results["total_results"] += len(mars_results.get("data", []))
+                results["total_results"] += mars_results.get("count", 0)
 
         # ISS Search
         if "iss" in search_datasets:
-            iss_results = search_iss_unified(query_lower, limit)
+            iss_results = search_iss_unified(query_lower, parsed_query, limit)
             if iss_results:
                 results["datasets"]["iss"] = iss_results
-                results["total_results"] += len(iss_results.get("data", []))
+                results["total_results"] += iss_results.get("count", 0)
 
         # Add search suggestions
         results["suggestions"] = generate_enhanced_suggestions(query_lower, parsed_query)
@@ -452,8 +452,7 @@ def unified_search(
 
 def parse_natural_language_query(query: str) -> dict:
     """
-    Advanced NLP parsing of search queries
-    Extracts entities, dates, numbers, and intent
+    Advanced NLP parsing of search queries with enhanced entity extraction and intent classification
     """
     import re
     from datetime import datetime, timedelta
@@ -465,136 +464,420 @@ def parse_natural_language_query(query: str) -> dict:
         "filters": {},
         "temporal": {},
         "numerical": {},
-        "confidence": 0.8
+        "spatial": {},
+        "confidence": 0.8,
+        "query_type": "simple",
+        "keywords": []
     }
 
-    query_lower = query.lower()
+    query_lower = query.lower().strip()
+    
+    # Extract keywords (remove common stop words)
+    stop_words = {"the", "and", "or", "in", "on", "at", "to", "for", "of", "with", "by", "from", "about", "into", "through", "during", "before", "after", "above", "below", "up", "down", "out", "off", "over", "under", "again", "further", "then", "once"}
+    words = re.findall(r'\b\w+\b', query_lower)
+    parsed["keywords"] = [word for word in words if word not in stop_words and len(word) > 2]
 
-    # Entity extraction
+    # Enhanced entity extraction with synonyms
     entities = {
-        "celestial_bodies": ["earth", "mars", "jupiter", "sun", "moon", "venus", "saturn"],
-        "spacecraft": ["iss", "curiosity", "perseverance", "opportunity", "spirit"],
-        "instruments": ["navcam", "mastcam", "mahli", "apxs", "chemcam"],
-        "astronomical_objects": ["exoplanet", "planet", "star", "galaxy", "nebula", "asteroid"],
-        "missions": ["apollo", "voyager", "cassini", "juno", "new horizons"]
+        "celestial_bodies": {
+            "earth": ["earth", "planet earth", "terra"],
+            "mars": ["mars", "red planet", "martian"],
+            "jupiter": ["jupiter", "jovian"],
+            "sun": ["sun", "solar", "star", "sol"],
+            "moon": ["moon", "lunar", "luna"],
+            "venus": ["venus", "venusian"],
+            "saturn": ["saturn", "saturnian"]
+        },
+        "spacecraft": {
+            "iss": ["iss", "international space station", "space station"],
+            "curiosity": ["curiosity", "msl", "mars science laboratory"],
+            "perseverance": ["perseverance", "percy", "mars 2020"],
+            "opportunity": ["opportunity", "oppy", "mer-b"],
+            "spirit": ["spirit", "mer-a"],
+            "voyager": ["voyager", "voyager 1", "voyager 2"],
+            "cassini": ["cassini", "cassini-huygens"],
+            "juno": ["juno"],
+            "new_horizons": ["new horizons", "new-horizons"]
+        },
+        "instruments": {
+            "navcam": ["navcam", "navigation camera", "nav cam"],
+            "mastcam": ["mastcam", "mast camera"],
+            "mahli": ["mahli", "mars hand lens imager"],
+            "chemcam": ["chemcam", "chemistry camera"],
+            "hazcam": ["hazcam", "hazard camera", "hazard avoidance camera"]
+        },
+        "astronomical_objects": {
+            "exoplanet": ["exoplanet", "extrasolar planet", "planet"],
+            "star": ["star", "stellar", "sun", "binary star"],
+            "galaxy": ["galaxy", "galactic"],
+            "nebula": ["nebula", "stellar nursery"],
+            "asteroid": ["asteroid", "minor planet", "space rock"],
+            "comet": ["comet", "icy body"],
+            "black_hole": ["black hole", "blackhole"],
+            "supernova": ["supernova", "stellar explosion"]
+        },
+        "phenomena": {
+            "aurora": ["aurora", "northern lights", "southern lights"],
+            "solar_flare": ["solar flare", "flare", "solar storm"],
+            "cme": ["cme", "coronal mass ejection", "solar wind"],
+            "meteor": ["meteor", "shooting star", "fireball"],
+            "eclipse": ["eclipse", "solar eclipse", "lunar eclipse"]
+        }
     }
 
-    for category, items in entities.items():
-        found = [item for item in items if item in query_lower]
-        if found:
-            parsed["entities"][category] = found
+    # Match entities with synonyms
+    for category, entity_dict in entities.items():
+        found_entities = {}
+        for entity, synonyms in entity_dict.items():
+            for synonym in synonyms:
+                if synonym in query_lower:
+                    found_entities[entity] = synonym
+                    break
+        if found_entities:
+            parsed["entities"][category] = found_entities
 
-    # Date and time extraction
-    # Year patterns
-    year_match = re.search(r'\b(19|20)\d{2}\b', query)
-    if year_match:
-        parsed["temporal"]["year"] = int(year_match.group())
+    # Enhanced temporal extraction
+    current_year = datetime.now().year
+    
+    # Specific years and year ranges
+    year_patterns = [
+        (r'\b(19|20)\d{2}\b', "specific_year"),
+        (r'since\s+(19|20)\d{2}', "year_since"),
+        (r'after\s+(19|20)\d{2}', "year_after"),
+        (r'before\s+(19|20)\d{2}', "year_before"),
+        (r'between\s+(19|20)\d{2}\s+and\s+(19|20)\d{2}', "year_range")
+    ]
+    
+    for pattern, time_type in year_patterns:
+        match = re.search(pattern, query)
+        if match:
+            if time_type == "year_range":
+                years = re.findall(r'(19|20)\d{2}', match.group())
+                parsed["temporal"]["start_year"] = int(years[0])
+                parsed["temporal"]["end_year"] = int(years[1])
+            else:
+                parsed["temporal"]["year"] = int(re.search(r'(19|20)\d{2}', match.group()).group())
+                parsed["temporal"]["type"] = time_type
+            break
 
-    # Relative time
-    if any(word in query_lower for word in ["recent", "latest", "new", "current"]):
-        parsed["temporal"]["relative"] = "recent"
-        parsed["filters"]["recent"] = True
+    # Relative time with more granularity
+    time_relative_patterns = {
+        "recent": ["recent", "latest", "new", "current", "today"],
+        "last_week": ["last week", "this week", "past week"],
+        "last_month": ["last month", "this month", "past month"],
+        "last_year": ["last year", "this year", "past year"],
+        "yesterday": ["yesterday", "24 hours"],
+        "last_few_days": ["last few days", "past few days", "recent days"]
+    }
+    
+    for time_key, patterns in time_relative_patterns.items():
+        if any(pattern in query_lower for pattern in patterns):
+            parsed["temporal"]["relative"] = time_key
+            parsed["filters"]["recent"] = True
+            break
 
-    if any(word in query_lower for word in ["last week", "this week"]):
-        parsed["temporal"]["relative"] = "week"
+    # Enhanced numerical extraction
+    numerical_patterns = {
+        "sol": r'sol\s*(\d+)',
+        "distance": r'(\d+(?:\.\d+)?)\s*(?:light\s*years?|ly|parsecs?|pc|kilometers?|km)',
+        "temperature": r'(\d+(?:\.\d+)?)\s*(?:kelvin|k|celsius|°c|fahrenheit|°f)',
+        "radius": r'(\d+(?:\.\d+)?)\s*(?:earth\s*radii?|jupiter\s*radii?|solar\s*radii?)',
+        "mass": r'(\d+(?:\.\d+)?)\s*(?:earth\s*mass|jupiter\s*mass|solar\s*mass)',
+        "orbital_period": r'(\d+(?:\.\d+)?)\s*(?:days?|years?|hours?)'
+    }
+    
+    for num_type, pattern in numerical_patterns.items():
+        match = re.search(pattern, query_lower)
+        if match:
+            parsed["numerical"][num_type] = float(match.group(1))
 
-    if any(word in query_lower for word in ["last month", "this month"]):
-        parsed["temporal"]["relative"] = "month"
+    # Enhanced size and comparison filters
+    size_patterns = {
+        "earth-like": ["earth-sized", "earth-like", "earthlike", "similar to earth", "earth size"],
+        "super-earth": ["super-earth", "super earth", "larger than earth"],
+        "jupiter-like": ["jupiter-sized", "jupiter-like", "gas giant", "giant planet"],
+        "small": ["small", "tiny", "mini", "dwarf"],
+        "large": ["large", "big", "massive", "huge"],
+        "rocky": ["rocky", "terrestrial", "solid"],
+        "gaseous": ["gaseous", "gas", "atmospheric"]
+    }
+    
+    for size_type, patterns in size_patterns.items():
+        if any(pattern in query_lower for pattern in patterns):
+            parsed["filters"]["size"] = size_type
+            break
 
-    # Numerical extraction
-    sol_match = re.search(r'sol\s*(\d+)', query_lower)
-    if sol_match:
-        parsed["numerical"]["sol"] = int(sol_match.group(1))
-
-    # Size comparisons
-    if any(word in query_lower for word in ["earth-sized", "earth-like", "earthlike"]):
-        parsed["filters"]["size"] = "earth-like"
-    elif any(word in query_lower for word in ["jupiter-sized", "giant"]):
-        parsed["filters"]["size"] = "giant"
-    elif any(word in query_lower for word in ["super-earth"]):
-        parsed["filters"]["size"] = "super-earth"
-
-    # Habitable zone detection
-    if any(word in query_lower for word in ["habitable", "goldilocks", "life"]):
+    # Habitable zone and life-related filters
+    habitability_patterns = ["habitable", "goldilocks", "life", "livable", "habitable zone", "temperate"]
+    if any(pattern in query_lower for pattern in habitability_patterns):
         parsed["filters"]["habitable_zone"] = True
 
-    # Star type detection
-    if any(word in query_lower for word in ["sun-like", "solar-type", "g-type"]):
-        parsed["filters"]["star_type"] = "sun-like"
+    # Star type detection with more variations
+    star_type_patterns = {
+        "sun-like": ["sun-like", "solar-type", "g-type", "g class", "similar to sun"],
+        "red-dwarf": ["red dwarf", "m-type", "m class", "red star"],
+        "white-dwarf": ["white dwarf", "white star"],
+        "giant": ["giant star", "red giant", "blue giant"]
+    }
+    
+    for star_type, patterns in star_type_patterns.items():
+        if any(pattern in query_lower for pattern in patterns):
+            parsed["filters"]["star_type"] = star_type
+            break
 
-    # Intent classification
-    if any(word in query_lower for word in ["position", "location", "overhead", "tracking"]):
-        parsed["intent"] = "tracking"
-    elif any(word in query_lower for word in ["image", "photo", "picture"]):
-        parsed["intent"] = "imagery"
-    elif any(word in query_lower for word in ["discover", "found", "detect"]):
-        parsed["intent"] = "discovery"
-    elif any(word in query_lower for word in ["weather", "space weather", "flare", "cme"]):
-        parsed["intent"] = "space_weather"
+    # Spatial/location filters
+    location_patterns = {
+        "coordinates": r'(?:lat|latitude)\s*[:\s]*(-?\d+(?:\.\d+)?)\s*,?\s*(?:lon|longitude)\s*[:\s]*(-?\d+(?:\.\d+)?)',
+        "constellation": r'(?:in|from|constellation)\s+([\w\s]+?)(?:\s|$)',
+        "overhead": ["overhead", "above", "passing over", "visible from"]
+    }
+    
+    coord_match = re.search(location_patterns["coordinates"], query_lower)
+    if coord_match:
+        parsed["spatial"]["latitude"] = float(coord_match.group(1))
+        parsed["spatial"]["longitude"] = float(coord_match.group(2))
+    
+    if any(pattern in query_lower for pattern in location_patterns["overhead"]):
+        parsed["spatial"]["overhead"] = True
+
+    # Enhanced intent classification with confidence scoring
+    intent_patterns = {
+        "tracking": {
+            "keywords": ["position", "location", "overhead", "tracking", "orbit", "path", "trajectory", "passes"],
+            "weight": 0.9
+        },
+        "imagery": {
+            "keywords": ["image", "photo", "picture", "gallery", "visual", "camera", "snapshot", "pic"],
+            "weight": 0.85
+        },
+        "discovery": {
+            "keywords": ["discover", "found", "detect", "search", "identify", "confirmed", "new"],
+            "weight": 0.8
+        },
+        "space_weather": {
+            "keywords": ["weather", "space weather", "flare", "cme", "storm", "aurora", "radiation"],
+            "weight": 0.95
+        },
+        "analysis": {
+            "keywords": ["analyze", "compare", "study", "research", "correlation", "statistics"],
+            "weight": 0.7
+        },
+        "mission": {
+            "keywords": ["mission", "launch", "landing", "flight", "operation", "rover", "spacecraft"],
+            "weight": 0.75
+        }
+    }
+    
+    intent_scores = {}
+    for intent, data in intent_patterns.items():
+        score = 0
+        for keyword in data["keywords"]:
+            if keyword in query_lower:
+                score += data["weight"]
+        if score > 0:
+            intent_scores[intent] = score
+    
+    if intent_scores:
+        parsed["intent"] = max(intent_scores, key=intent_scores.get)
+        parsed["confidence"] = min(intent_scores[parsed["intent"]] / len(parsed["keywords"]) if parsed["keywords"] else 1, 1.0)
+    
+    # Determine query complexity
+    complexity_factors = [
+        len(parsed["entities"]),
+        len(parsed["filters"]),
+        len(parsed["temporal"]),
+        len(parsed["numerical"]),
+        len(parsed["spatial"])
+    ]
+    total_complexity = sum(complexity_factors)
+    
+    if total_complexity <= 2:
+        parsed["query_type"] = "simple"
+    elif total_complexity <= 5:
+        parsed["query_type"] = "moderate"
+    else:
+        parsed["query_type"] = "complex"
 
     return parsed
 
 def search_exoplanets_advanced(query: str, parsed_query: dict, limit: int, advanced_filters: dict) -> Optional[dict]:
-    """Enhanced exoplanet search with NLP understanding"""
+    """Enhanced exoplanet search with comprehensive NLP understanding and fuzzy matching"""
     try:
         where_conditions = []
+        query_metadata = {
+            "applied_filters": [],
+            "fuzzy_matches": [],
+            "confidence_adjustments": []
+        }
 
-        # Use parsed query data
-        if "year" in parsed_query.get("temporal", {}):
-            year = parsed_query["temporal"]["year"]
-            where_conditions.append(f"disc_year={year}")
+        # Enhanced temporal filtering
+        temporal_data = parsed_query.get("temporal", {})
+        if "year" in temporal_data:
+            year = temporal_data["year"]
+            time_type = temporal_data.get("type", "specific_year")
+            
+            if time_type == "year_since":
+                where_conditions.append(f"disc_year>={year}")
+                query_metadata["applied_filters"].append(f"Discoveries since {year}")
+            elif time_type == "year_after":
+                where_conditions.append(f"disc_year>{year}")
+                query_metadata["applied_filters"].append(f"Discoveries after {year}")
+            elif time_type == "year_before":
+                where_conditions.append(f"disc_year<{year}")
+                query_metadata["applied_filters"].append(f"Discoveries before {year}")
+            else:
+                where_conditions.append(f"disc_year={year}")
+                query_metadata["applied_filters"].append(f"Discovered in {year}")
+        
+        if "start_year" in temporal_data and "end_year" in temporal_data:
+            start_year = temporal_data["start_year"]
+            end_year = temporal_data["end_year"]
+            where_conditions.append(f"disc_year>={start_year} and disc_year<={end_year}")
+            query_metadata["applied_filters"].append(f"Discovered between {start_year}-{end_year}")
 
+        # Recent discoveries with varying thresholds
         if parsed_query.get("filters", {}).get("recent"):
-            where_conditions.append("disc_year>=2020")
+            relative = temporal_data.get("relative", "recent")
+            current_year = datetime.now().year
+            
+            if relative == "last_year":
+                where_conditions.append(f"disc_year>={current_year-1}")
+            elif relative == "last_month" or relative == "recent":
+                where_conditions.append(f"disc_year>={current_year-2}")  # Last 2 years for "recent"
+            else:
+                where_conditions.append("disc_year>=2020")
+            
+            query_metadata["applied_filters"].append("Recent discoveries")
 
-        # Size filters from NLP
+        # Enhanced size filtering with more precise ranges
         size_filter = parsed_query.get("filters", {}).get("size")
-        if size_filter == "earth-like":
-            where_conditions.append("pl_rade>=0.8 and pl_rade<=1.25")
-        elif size_filter == "giant":
-            where_conditions.append("pl_rade>4")
-        elif size_filter == "super-earth":
-            where_conditions.append("pl_rade>1.25 and pl_rade<2.0")
+        if size_filter:
+            size_conditions = {
+                "earth-like": ("pl_rade>=0.8 and pl_rade<=1.25", "Earth-like size (0.8-1.25 Earth radii)"),
+                "super-earth": ("pl_rade>1.25 and pl_rade<=2.0", "Super-Earth size (1.25-2.0 Earth radii)"),
+                "jupiter-like": ("pl_rade>=10 and pl_rade<=15", "Jupiter-like size (10-15 Earth radii)"),
+                "small": ("pl_rade<0.8", "Small planets (<0.8 Earth radii)"),
+                "large": ("pl_rade>4", "Large planets (>4 Earth radii)"),
+                "rocky": ("pl_rade<2.0", "Rocky planets (<2.0 Earth radii)"),
+                "gaseous": ("pl_rade>4", "Gaseous planets (>4 Earth radii)")
+            }
+            
+            if size_filter in size_conditions:
+                condition, description = size_conditions[size_filter]
+                where_conditions.append(condition)
+                query_metadata["applied_filters"].append(description)
 
-        # Habitable zone
+        # Numerical constraints
+        numerical_data = parsed_query.get("numerical", {})
+        for param, value in numerical_data.items():
+            if param == "distance":
+                where_conditions.append(f"sy_dist<={value}")
+                query_metadata["applied_filters"].append(f"Within {value} light-years")
+            elif param == "radius":
+                where_conditions.append(f"pl_rade<={value}")
+                query_metadata["applied_filters"].append(f"Radius ≤ {value} Earth radii")
+            elif param == "mass":
+                where_conditions.append(f"pl_masse<={value}")
+                query_metadata["applied_filters"].append(f"Mass ≤ {value} Earth masses")
+
+        # Habitable zone with more sophisticated detection
         if parsed_query.get("filters", {}).get("habitable_zone"):
-            where_conditions.append("pl_orbsmax>0.7 and pl_orbsmax<1.5")
+            # Conservative habitable zone estimate
+            where_conditions.append("pl_orbsmax>=0.75 and pl_orbsmax<=1.77")
+            query_metadata["applied_filters"].append("Potentially habitable zone")
 
-        # Star type
-        if parsed_query.get("filters", {}).get("star_type") == "sun-like":
-            where_conditions.append("st_teff>5200 and st_teff<6000")
+        # Enhanced star type filtering
+        star_type = parsed_query.get("filters", {}).get("star_type")
+        if star_type:
+            star_conditions = {
+                "sun-like": ("st_teff>=5200 and st_teff<=6000 and st_spectype like 'G%'", "Sun-like stars (G-type)"),
+                "red-dwarf": ("st_teff<4000 and st_spectype like 'M%'", "Red dwarf stars (M-type)"),
+                "white-dwarf": ("st_spectype like 'D%'", "White dwarf stars"),
+                "giant": ("st_rad>10", "Giant stars")
+            }
+            
+            if star_type in star_conditions:
+                condition, description = star_conditions[star_type]
+                where_conditions.append(condition)
+                query_metadata["applied_filters"].append(description)
 
-        # Advanced filters
-        if "min_distance" in advanced_filters:
-            where_conditions.append(f"sy_dist>={advanced_filters['min_distance']}")
-        if "max_distance" in advanced_filters:
-            where_conditions.append(f"sy_dist<={advanced_filters['max_distance']}")
+        # Advanced filters from API parameters
+        for filter_key, filter_value in advanced_filters.items():
+            if filter_key == "min_distance":
+                where_conditions.append(f"sy_dist>={filter_value}")
+                query_metadata["applied_filters"].append(f"Distance ≥ {filter_value} ly")
+            elif filter_key == "max_distance":
+                where_conditions.append(f"sy_dist<={filter_value}")
+                query_metadata["applied_filters"].append(f"Distance ≤ {filter_value} ly")
+            elif filter_key == "confirmed_only":
+                where_conditions.append("pl_name not like '%candidate%'")
+                query_metadata["applied_filters"].append("Confirmed planets only")
 
+        # Planet name fuzzy matching
+        keywords = parsed_query.get("keywords", [])
+        name_filters = []
+        for keyword in keywords:
+            if len(keyword) > 3:  # Avoid very short keywords
+                name_filters.append(f"upper(pl_name) like upper('%{keyword}%')")
+                query_metadata["fuzzy_matches"].append(f"Name contains '{keyword}'")
+        
+        if name_filters:
+            where_conditions.append(f"({' or '.join(name_filters)})")
+
+        # Build and execute query
         where_clause = " and ".join(where_conditions) if where_conditions else None
-
+        
+        # Select more comprehensive data
+        select_fields = "pl_name,pl_rade,pl_masse,disc_year,st_teff,sy_dist,pl_orbsmax,st_spectype,st_rad,pl_eqt,discoverymethod"
+        
         result = get_exoplanet(
             table="ps",
-            select="pl_name,pl_rade,disc_year,st_teff,sy_dist,pl_orbsmax,st_spectype",
+            select=select_fields,
             where=where_clause,
-            order="disc_year desc",
+            order="disc_year desc, sy_dist asc",
             format="json"
         )
 
         if result:
-            # Add relevance scoring
-            scored_results = add_relevance_scores(result, query, parsed_query)
+            # Enhanced relevance scoring
+            scored_results = add_relevance_scores_advanced(result, query, parsed_query)
+            
+            # Apply limit after scoring
             if len(scored_results) > limit:
                 scored_results = scored_results[:limit]
 
+            # Calculate confidence based on query complexity and results
+            base_confidence = parsed_query.get("confidence", 0.8)
+            if len(where_conditions) > 0:
+                base_confidence = min(base_confidence + 0.1, 1.0)  # Boost for specific queries
+            
             return {
                 "source": "NASA Exoplanet Archive",
                 "count": len(scored_results),
+                "total_matches": len(result) if isinstance(result, list) else 1,
                 "data": scored_results,
-                "query_interpretation": where_conditions,
-                "confidence": parsed_query.get("confidence", 0.8)
+                "query_interpretation": {
+                    "sql_conditions": where_conditions,
+                    "applied_filters": query_metadata["applied_filters"],
+                    "fuzzy_matches": query_metadata["fuzzy_matches"]
+                },
+                "confidence": base_confidence,
+                "search_metadata": {
+                    "query_complexity": parsed_query.get("query_type", "simple"),
+                    "intent": parsed_query.get("intent", "general_search"),
+                    "keywords_matched": len(query_metadata["fuzzy_matches"])
+                }
             }
     except Exception as e:
         print(f"Error in advanced exoplanet search: {e}")
+        return {
+            "source": "NASA Exoplanet Archive",
+            "count": 0,
+            "data": [],
+            "error": f"Search failed: {str(e)}",
+            "confidence": 0.0
+        }
+    
     return None
 
 def find_cross_dataset_correlations(datasets: dict) -> List[dict]:
@@ -720,7 +1003,6 @@ def generate_filter_suggestions(parsed_query: dict) -> dict:
         elif size == "super-earth":
             suggestions["radius_range"] = {"min": 1.25, "max": 2.0}
 
-    return suggestions
 
 
     elif intent == "tracking":
@@ -744,6 +1026,7 @@ def generate_filter_suggestions(parsed_query: dict) -> dict:
         "Try: 'potentially habitable exoplanets within 50 light years'",
         "Try: 'Mars helicopter flight data and images'"
     ]
+    return suggestions
 
 
 @app.get("/api/search/analytics")
@@ -776,41 +1059,137 @@ def get_search_analytics():
 
     return suggestions[:3] + trending[:2]
 
-def add_relevance_scores(results: List, query: str, parsed_query: dict) -> List:
-    """Add relevance scoring to search results"""
+def add_relevance_scores_advanced(results: List, query: str, parsed_query: dict) -> List:
+    """Enhanced relevance scoring with multiple factors and weighted scoring"""
     if not isinstance(results, list):
         return results
 
     query_lower = query.lower()
-
+    keywords = parsed_query.get("keywords", [])
+    intent = parsed_query.get("intent", "general_search")
+    
     for item in results:
         score = 0.0
+        scoring_details = {}
 
-        # Name matching
-        if isinstance(item, dict) and "pl_name" in item:
+        # Name matching with keyword relevance (25% weight)
+        name_score = 0.0
+        if isinstance(item, dict) and "pl_name" in item and item["pl_name"]:
             name = str(item["pl_name"]).lower()
+            
+            # Exact keyword matches
+            for keyword in keywords:
+                if keyword in name:
+                    name_score += 0.8
+            
+            # Partial query matches
             for word in query_lower.split():
-                if word in name:
-                    score += 0.3
+                if len(word) > 2 and word in name:
+                    name_score += 0.5
+        
+        scoring_details["name_match"] = name_score
+        score += name_score * 0.25
 
-        # Discovery year relevance
-        if "disc_year" in item and parsed_query.get("temporal", {}).get("year"):
-            target_year = parsed_query["temporal"]["year"]
-            if item["disc_year"] == target_year:
-                score += 0.5
+        # Temporal relevance (20% weight)
+        temporal_score = 0.0
+        if "disc_year" in item and item["disc_year"]:
+            discovery_year = item["disc_year"]
+            
+            # Boost for recent discoveries
+            current_year = datetime.now().year
+            years_ago = current_year - discovery_year
+            
+            if years_ago <= 3:
+                temporal_score += 1.0  # Very recent
+            elif years_ago <= 10:
+                temporal_score += 0.7  # Recent
+            elif years_ago <= 20:
+                temporal_score += 0.4  # Moderately recent
+            
+            # Specific year matching
+            target_year = parsed_query.get("temporal", {}).get("year")
+            if target_year:
+                if discovery_year == target_year:
+                    temporal_score += 1.0
+                else:
+                    year_diff = abs(discovery_year - target_year)
+                    temporal_score += max(0, 1.0 - (year_diff * 0.1))
+        
+        scoring_details["temporal_match"] = temporal_score
+        score += temporal_score * 0.20
+
+        # Size/characteristic relevance (20% weight)
+        size_score = 0.0
+        if "pl_rade" in item and item["pl_rade"]:
+            radius = item["pl_rade"]
+            size_filter = parsed_query.get("filters", {}).get("size")
+            
+            if size_filter:
+                if size_filter == "earth-like" and 0.8 <= radius <= 1.25:
+                    size_score += 1.0
+                elif size_filter == "super-earth" and 1.25 < radius <= 2.0:
+                    size_score += 1.0
+                elif size_filter == "jupiter-like" and radius >= 10:
+                    size_score += 1.0
+                elif size_filter == "small" and radius < 0.8:
+                    size_score += 1.0
+                elif size_filter == "large" and radius > 4:
+                    size_score += 1.0
+        
+        scoring_details["size_match"] = size_score
+        score += size_score * 0.20
+
+        # Distance relevance (15% weight) - closer is generally more interesting
+        distance_score = 0.0
+        if "sy_dist" in item and item["sy_dist"]:
+            distance = item["sy_dist"]
+            if distance <= 50:
+                distance_score += 1.0  # Very close
+            elif distance <= 100:
+                distance_score += 0.8  # Close
+            elif distance <= 500:
+                distance_score += 0.5  # Moderate
             else:
-                # Closer years get higher scores
-                year_diff = abs(item["disc_year"] - target_year)
-                score += max(0, 0.3 - (year_diff * 0.05))
+                distance_score += 0.2  # Distant
+        
+        scoring_details["distance_score"] = distance_score
+        score += distance_score * 0.15
 
-        # Recent discoveries boost
-        if "disc_year" in item and item["disc_year"] and item["disc_year"] >= 2020:
-            score += 0.2
+        # Habitability relevance (10% weight)
+        hab_score = 0.0
+        if parsed_query.get("filters", {}).get("habitable_zone"):
+            if "pl_orbsmax" in item and item["pl_orbsmax"]:
+                orbital_distance = item["pl_orbsmax"]
+                if 0.75 <= orbital_distance <= 1.77:
+                    hab_score += 1.0
+        
+        scoring_details["habitability_score"] = hab_score
+        score += hab_score * 0.10
 
-        item["_relevance_score"] = score
+        # Intent-specific bonuses (10% weight)
+        intent_score = 0.0
+        if intent == "discovery" and "disc_year" in item:
+            # Boost newer discoveries for discovery intent
+            years_ago = datetime.now().year - item["disc_year"]
+            intent_score += max(0, 1.0 - (years_ago * 0.05))
+        elif intent == "analysis" and "st_teff" in item:
+            # Boost planets with complete stellar data for analysis
+            if item["st_teff"] and "st_spectype" in item and item["st_spectype"]:
+                intent_score += 0.8
+        
+        scoring_details["intent_bonus"] = intent_score
+        score += intent_score * 0.10
 
-    # Sort by relevance score
-    return sorted(results, key=lambda x: x.get("_relevance_score", 0), reverse=True)
+        # Apply confidence modifier
+        confidence = parsed_query.get("confidence", 0.8)
+        score *= confidence
+
+        # Store scoring details for debugging
+        item["_relevance_score"] = round(score, 3)
+        item["_scoring_details"] = scoring_details
+
+    # Sort by relevance score, then by discovery year (newer first) as tiebreaker
+    return sorted(results, key=lambda x: (x.get("_relevance_score", 0), x.get("disc_year", 0)), reverse=True)
 
 def rank_and_sort_results(results: dict, sort_by: str, parsed_query: dict) -> dict:
     """Sort and rank results based on specified criteria"""
@@ -891,83 +1270,291 @@ def search_exoplanets_unified(query: str, limit: int) -> Optional[dict]:
         print(f"Error searching exoplanets: {e}")
     return None
 
-def search_mars_unified(query: str, limit: int) -> Optional[dict]:
-    """Search Mars data based on query keywords"""
+def search_mars_unified(query: str, parsed_query: dict, limit: int) -> Optional[dict]:
+    """Enhanced Mars data search with comprehensive keyword matching"""
     try:
         results = []
-
-        # APOD search
-        if any(word in query for word in ["picture", "image", "photo", "apod", "astronomy"]):
+        query_lower = query.lower()
+        entities = parsed_query.get("entities", {})
+        intent = parsed_query.get("intent", "general_search")
+        numerical = parsed_query.get("numerical", {})
+        
+        # APOD search - enhanced matching
+        apod_keywords = ["picture", "image", "photo", "apod", "astronomy", "daily", "photograph", "visual"]
+        if any(word in query_lower for word in apod_keywords) or intent == "imagery":
             try:
-                apod_result = apod(count=min(limit, 5))
+                # Determine count based on query
+                count = min(numerical.get("count", 3), limit)
+                if any(word in query_lower for word in ["recent", "latest", "today"]):
+                    apod_result = apod(count=1)
+                else:
+                    apod_result = apod(count=count)
+                
                 if apod_result:
                     results.append({
                         "type": "apod",
-                        "source": "NASA APOD",
-                        "data": apod_result
+                        "source": "NASA Astronomy Picture of the Day",
+                        "relevance_score": 0.9 if intent == "imagery" else 0.7,
+                        "data": apod_result,
+                        "match_reason": "Astronomy imagery request"
                     })
             except Exception as e:
                 print(f"APOD search error: {e}")
 
-        # Rover photos search
-        if any(word in query for word in ["rover", "mars", "curiosity", "perseverance", "sol"]):
+        # Enhanced rover photos search
+        rover_keywords = ["rover", "mars", "curiosity", "perseverance", "opportunity", "spirit", "sol", "surface", "martian"]
+        spacecraft_entities = entities.get("spacecraft", {})
+        
+        if any(word in query_lower for word in rover_keywords) or spacecraft_entities or "mars" in entities.get("celestial_bodies", {}):
             try:
-                # Extract sol number if mentioned
-                import re
-                sol_match = re.search(r'sol\s*(\d+)', query)
-                sol = int(sol_match.group(1)) if sol_match else 1000
-
+                # Determine rover from query
+                rover_name = "curiosity"  # default
+                if "perseverance" in spacecraft_entities:
+                    rover_name = "perseverance"
+                elif "opportunity" in spacecraft_entities:
+                    rover_name = "opportunity"
+                elif "spirit" in spacecraft_entities:
+                    rover_name = "spirit"
+                
+                # Extract sol number or use intelligent default
+                sol = numerical.get("sol", None)
+                if not sol:
+                    import re
+                    sol_match = re.search(r'sol\s*(\d+)', query_lower)
+                    sol = int(sol_match.group(1)) if sol_match else 1000
+                
+                # Determine camera if specified
+                camera = None
+                camera_keywords = {
+                    "navcam": ["navcam", "navigation", "nav"],
+                    "mastcam": ["mastcam", "mast"],
+                    "hazcam": ["hazcam", "hazard"],
+                    "mahli": ["mahli", "hand lens"],
+                    "chemcam": ["chemcam", "chemistry"]
+                }
+                
+                for cam_name, keywords in camera_keywords.items():
+                    if any(keyword in query_lower for keyword in keywords):
+                        camera = cam_name
+                        break
+                
                 rover = CuriosityRover()
-                photos = rover.photos_by_sol("curiosity", sol, page=1)
+                photos = rover.photos_by_sol(rover_name, sol, camera, page=1)
+                
                 if photos and photos.get("photos"):
                     limited_photos = photos["photos"][:limit]
                     results.append({
                         "type": "rover_photos",
-                        "source": "Mars Rover Photos",
+                        "source": f"Mars {rover_name.title()} Rover Photos",
+                        "rover": rover_name,
                         "sol": sol,
-                        "data": limited_photos
+                        "camera": camera,
+                        "relevance_score": 0.95 if rover_name in spacecraft_entities else 0.8,
+                        "data": limited_photos,
+                        "match_reason": f"Mars rover imagery from Sol {sol}"
                     })
             except Exception as e:
                 print(f"Rover search error: {e}")
 
-        # NEO search
-        if any(word in query for word in ["asteroid", "neo", "near earth"]):
+        # Enhanced NEO search
+        neo_keywords = ["asteroid", "neo", "near earth", "object", "potentially hazardous", "space rock", "minor planet"]
+        if any(word in query_lower for word in neo_keywords) or "asteroid" in entities.get("astronomical_objects", {}):
             try:
                 neow = Neow()
-                neo_data = neow.neo_feed()
+                
+                # Use date range if specified
+                temporal = parsed_query.get("temporal", {})
+                start_date = None
+                end_date = None
+                
+                if "year" in temporal:
+                    year = temporal["year"]
+                    start_date = f"{year}-01-01"
+                    end_date = f"{year}-12-31"
+                
+                neo_data = neow.neo_feed(start_date, end_date)
                 if neo_data:
                     results.append({
                         "type": "neo",
                         "source": "Near Earth Objects",
-                        "data": neo_data
+                        "relevance_score": 0.85,
+                        "data": neo_data,
+                        "match_reason": "Near-Earth asteroid data",
+                        "date_range": {"start": start_date, "end": end_date} if start_date else None
                     })
             except Exception as e:
                 print(f"NEO search error: {e}")
 
+        # Space weather search
+        weather_keywords = ["weather", "space weather", "flare", "cme", "coronal", "solar", "storm", "radiation"]
+        if any(word in query_lower for word in weather_keywords) or intent == "space_weather":
+            try:
+                donki = Donki()
+                
+                # Get both CME and solar flare data
+                cme_data = donki.cme()
+                flare_data = donki.flr()
+                
+                if cme_data:
+                    results.append({
+                        "type": "space_weather_cme",
+                        "source": "DONKI Space Weather - CME",
+                        "relevance_score": 0.9,
+                        "data": cme_data,
+                        "match_reason": "Coronal Mass Ejection events"
+                    })
+                
+                if flare_data:
+                    results.append({
+                        "type": "space_weather_flares", 
+                        "source": "DONKI Space Weather - Solar Flares",
+                        "relevance_score": 0.9,
+                        "data": flare_data,
+                        "match_reason": "Solar flare events"
+                    })
+            except Exception as e:
+                print(f"Space weather search error: {e}")
+
+        # Natural events search
+        event_keywords = ["natural", "event", "disaster", "earthquake", "volcano", "wildfire", "storm", "hurricane"]
+        if any(word in query_lower for word in event_keywords):
+            try:
+                eonet = Eonet()
+                events_data = eonet.events(limit=limit)
+                if events_data:
+                    results.append({
+                        "type": "natural_events",
+                        "source": "EONET Natural Events",
+                        "relevance_score": 0.75,
+                        "data": events_data,
+                        "match_reason": "Earth natural events tracking"
+                    })
+            except Exception as e:
+                print(f"Natural events search error: {e}")
+
         if results:
+            # Sort by relevance score
+            results.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
+            
             return {
                 "source": "Mars & NASA Data APIs",
                 "count": len(results),
-                "data": results
+                "total_data_points": sum(len(r.get("data", [])) if isinstance(r.get("data"), list) else 1 for r in results),
+                "data": results,
+                "query_analysis": {
+                    "intent": intent,
+                    "entities_found": entities,
+                    "numerical_params": numerical,
+                    "confidence": parsed_query.get("confidence", 0.8)
+                }
             }
     except Exception as e:
         print(f"Error searching Mars data: {e}")
+        return {
+            "source": "Mars & NASA Data APIs",
+            "count": 0,
+            "data": [],
+            "error": f"Search failed: {str(e)}"
+        }
+    
     return None
 
-def search_iss_unified(query: str, limit: int) -> Optional[dict]:
-    """Search ISS data based on query keywords"""
+def search_iss_unified(query: str, parsed_query: dict, limit: int) -> Optional[dict]:
+    """Enhanced ISS data search with location and tracking capabilities"""
     try:
-        if any(word in query for word in ["iss", "station", "space station", "international", "orbit", "position"]):
-            position = get_iss_position()
+        query_lower = query.lower()
+        entities = parsed_query.get("entities", {})
+        intent = parsed_query.get("intent", "general_search")
+        spatial = parsed_query.get("spatial", {})
+        
+        iss_keywords = ["iss", "station", "space station", "international", "orbit", "position", "tracking", "spacecraft"]
+        spacecraft_entities = entities.get("spacecraft", {})
+        
+        if any(word in query_lower for word in iss_keywords) or "iss" in spacecraft_entities or intent == "tracking":
+            results = []
+            
+            # Current position
+            position = get_iss_position(units="kilometers", timestamps=True)
             if position:
-                return {
-                    "source": "ISS Tracking API", 
-                    "count": 1,
-                    "data": [position],
+                position_result = {
+                    "type": "current_position",
+                    "source": "ISS Live Tracking",
+                    "relevance_score": 1.0,
+                    "data": position,
+                    "match_reason": "Real-time ISS location",
                     "live_data": True
                 }
+                results.append(position_result)
+                
+                # Check if ISS is overhead at specified location
+                if "latitude" in spatial and "longitude" in spatial:
+                    lat = spatial["latitude"]
+                    lon = spatial["longitude"]
+                    
+                    overhead = is_iss_overhead(lat, lon)
+                    coords_info = get_coordinates_info(lat, lon)
+                    
+                    overhead_result = {
+                        "type": "overhead_check",
+                        "source": "ISS Overhead Analysis",
+                        "relevance_score": 0.95,
+                        "data": {
+                            "is_overhead": overhead,
+                            "coordinates": {"latitude": lat, "longitude": lon},
+                            "location_info": coords_info,
+                            "iss_position": position
+                        },
+                        "match_reason": f"ISS visibility check for coordinates ({lat}, {lon})"
+                    }
+                    results.append(overhead_result)
+            
+            # TLE orbital data for trajectory analysis
+            if any(word in query_lower for word in ["orbit", "trajectory", "tle", "orbital", "elements"]):
+                tle_data = get_iss_tle()
+                if tle_data:
+                    results.append({
+                        "type": "orbital_elements",
+                        "source": "ISS TLE Data",
+                        "relevance_score": 0.8,
+                        "data": tle_data,
+                        "match_reason": "ISS orbital trajectory data"
+                    })
+            
+            # Satellite list if querying about other spacecraft
+            if any(word in query_lower for word in ["satellite", "satellites", "tracked", "available"]):
+                sats = satellites()
+                if sats:
+                    results.append({
+                        "type": "tracked_satellites",
+                        "source": "Available Satellites",
+                        "relevance_score": 0.6,
+                        "data": sats,
+                        "match_reason": "List of tracked satellites"
+                    })
+            
+            if results:
+                return {
+                    "source": "ISS Tracking APIs",
+                    "count": len(results),
+                    "data": results,
+                    "query_analysis": {
+                        "intent": intent,
+                        "entities_found": entities,
+                        "spatial_params": spatial,
+                        "confidence": parsed_query.get("confidence", 0.8)
+                    },
+                    "live_data": True
+                }
+    
     except Exception as e:
         print(f"Error searching ISS data: {e}")
+        return {
+            "source": "ISS Tracking APIs",
+            "count": 0,
+            "data": [],
+            "error": f"ISS search failed: {str(e)}"
+        }
+    
     return None
 
 def generate_search_suggestions(query: str) -> List[str]:
