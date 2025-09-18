@@ -1,6 +1,9 @@
 
 import json
 from datetime import datetime, timedelta
+import sys
+# Settle the path of import
+sys.path.append("..")  # Adjust as necessary for your project structure
 from api.mars import (
     apod, Neow, Apod, Donki, Eonet, Epic, InSight, 
     CuriosityRover, NasaImages, OSDR, osdp
